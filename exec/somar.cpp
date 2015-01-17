@@ -76,11 +76,15 @@ void nsrun ();
 // #define USE_LES
 #ifdef USE_LES
 extern "C" {
-    void FORTRAN_NAME(DIABLO,diablo) (
+    // void FORTRAN_NAME(DIABLO,diablo) (
+    //     int*, int*, int*, int*
+    // );
+    void FORTRAN_NAME(EDDY,eddy) (
         int*, int*, int*, int*
     );
 }
 #endif //USE_LES
+
 
 // #define TRAP_FPE  //(should be off by default)
 #ifdef TRAP_FPE
@@ -169,6 +173,39 @@ int main(int argc, char* argv[])
         Everything.start();
 #   endif
 
+// #   ifndef NDEBUG
+//     {
+//         // Get the host name
+//         utsname hostInfo;
+//         int errCode = uname(&hostInfo);
+//         if (errCode != 0) {
+//             pout() << "\nerrCode = " << errCode << " recieved from uname function." << endl;
+//         } else {
+//             pout() << "\nHost info:"
+//                    << "\n  sysname    = " << hostInfo.sysname
+//                    << "\n  nodename   = " << hostInfo.nodename
+//                    << "\n  release    = " << hostInfo.release
+//                    << "\n  version    = " << hostInfo.version
+//                    << "\n  machine    = " << hostInfo.machine
+//                    << endl;
+// #           ifdef _GNU_SOURCE
+//                 pout() << "  domainname = " << hostInfo.domainname << endl;
+// #           endif
+//         }
+
+//         // Only register the debugger on certain systems.
+//         bool useDebugger = true;
+//         useDebugger |= std::string(hostInfo.nodename) == std::string("iceman");
+//         useDebugger |= (std::string(hostInfo.nodename) == std::string("scorpion") && numProc() == 1);
+//         if (useDebugger) {
+//             pout() << "Registering debugger..." << endl;
+//             registerDebugger();
+//         }
+//     }
+// #   endif
+//     pout() << endl;
+
+
     // BEGIN: Chombo-only code.
     if (AMRLESMeta::amrSize > 0) {
         if (AMRLESMeta::isGroupMember(AMRLESMeta::amrGroup)) {
@@ -223,7 +260,7 @@ int main(int argc, char* argv[])
 
 #           ifndef NDEBUG
                 // Only register the debugger on certain systems.
-                bool useDebugger = false;
+                bool useDebugger = true;
                 useDebugger |= std::string(hostInfo.nodename) == std::string("iceman");
                 useDebugger |= (std::string(hostInfo.nodename) == std::string("scorpion") && numProc() == 1);
                 if (useDebugger) {
@@ -254,7 +291,14 @@ int main(int argc, char* argv[])
                 }
 #           endif
 
-             FORTRAN_NAME(DIABLO,diablo)(
+             // FORTRAN_NAME(DIABLO,diablo)(
+             //     &AMRLESMeta::lesComm,
+             //     &AMRLESMeta::interComm,
+             //     &AMRLESMeta::amr2lesLeader,
+             //     &AMRLESMeta::les2amrLeader
+             // );
+
+             FORTRAN_NAME(EDDY,eddy)(
                  &AMRLESMeta::lesComm,
                  &AMRLESMeta::interComm,
                  &AMRLESMeta::amr2lesLeader,

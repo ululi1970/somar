@@ -435,7 +435,7 @@ void AMRNavierStokes::tagCells (IntVectSet& a_tags)
 
     // This tags via the buoyancy projected onto the vertical structure.
     TODO(); // Put s_bphi0_tag_tol into ProblemContext, etc...
-    if (0) {
+    if (1) {
         static Real s_bphi0_tag_tol = 0.5;
         DataIterator dit = grids.dataIterator();
 
