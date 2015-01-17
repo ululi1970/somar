@@ -1026,6 +1026,7 @@ void LevelLepticSolver::levelVertHorizGradient (BoundaryData<Real>&   a_vertBdry
 
 // -----------------------------------------------------------------------------
 // Computes the excess function, excess = hiNeumBC - loNeumBC - Integral[rhs].
+// ERROR FOUND: If there are no grids on this proc, this function will crash.
 // -----------------------------------------------------------------------------
 void LevelLepticSolver::computeVerticalExcess (BoxLayoutData<FArrayBox>&   a_excess,
                                                const LevelData<FArrayBox>& a_rhs,
