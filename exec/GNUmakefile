@@ -18,8 +18,10 @@ LibNames :=  AMRElliptic AMRTools AMRTimeDependent BoxTools
 
 base_dir =  .
 src_dirs = $(shell find ../src -maxdepth 256 -type d | tr '\n' ' ')
-src_dirs+= ../DNS/projects/Beam_Profile
-inc_dirs = $(CHOMBO_HOME)/include $(src_dirs) /home/eds/research/somar/DNS/src
+inc_dirs = $(CHOMBO_HOME)/include $(src_dirs)
+
+# src_dirs += ../DNS/projects/Beam_Profile
+# inc_dirs += ../DNS/src
 
 include $(CHOMBO_HOME)/mk/Make.example
 # END: Don't mess with this stuff.
