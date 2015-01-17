@@ -77,14 +77,14 @@ public:
                                            const Real           a_time);
 
 protected:
-    // Sets physical BCs on velocities
-    virtual BCMethodHolder basicVelFuncBC (int a_veldir, bool a_isViscous) const;
+    // // Sets physical BCs on velocities
+    // virtual BCMethodHolder basicVelFuncBC (int a_veldir, bool a_isViscous) const;
 
-    // Sets physical BCs on a generic passive scalar
-    virtual BCMethodHolder basicScalarFuncBC () const;
+    // // Sets physical BCs on a generic passive scalar
+    // virtual BCMethodHolder basicScalarFuncBC () const;
 
-    /// Sets physical BCs on pressures (used by the Poisson solvers)
-    virtual BCMethodHolder basicPressureFuncBC (bool a_isHomogeneous) const;
+    // /// Sets physical BCs on pressures (used by the Poisson solvers)
+    // virtual BCMethodHolder basicPressureFuncBC (bool a_isHomogeneous) const;
 
     // Simply sets a_value to the background density at any given point, which
     // is all we need for the boundary conditions.
