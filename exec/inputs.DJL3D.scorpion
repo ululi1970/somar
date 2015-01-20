@@ -2,7 +2,7 @@ ibc.problem = 8                # 8 = DJL
 ibc.useBackgroundScalar = 1
 
 
-# amr.restart_file = chkpt_000175.3d.hdf5
+amr.restart_file = chkpt_000100.3d.hdf5
 amr.gravityMethod = 2          # [1]   0 = none, 1 = explicit, 2 = implicit
 amr.gravityTheta = 0.52         # [0.6] 0.0 = Forward Euler, 0.5 = Crank-Nicolson, 1.0 = Backwards Euler
 # les.proc_frac = 0.0
@@ -12,7 +12,7 @@ amr.verbosity = 1
 geometry.coordMap = 0           # 0 = Cartesian, 1 = Twisted, 2 = Beam generation ridge, 5 = Ledge
 
 ### Base grid
-amr.length = 128.0 128.0 1.0
+amr.length = 128.0 256.0 1.0
 # # amr.nx = 32 16 32
 # # amr.nx = 128 64
 # amr.nx = 256 256 128

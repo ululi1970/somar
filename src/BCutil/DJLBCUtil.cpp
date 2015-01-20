@@ -46,8 +46,8 @@ void envelopeExtrusionVel (FArrayBox&       a_destFAB,
                            const Box&       a_domBox,
                            const FArrayBox& a_flatSrcFAB) // comp assumed to be zero
 {
-    const Real m = 20.0;    // Envelope slope
-    const Real sigma = 0.5; // Envelope width
+    const Real m = 40.0;    // Envelope slope
+    const Real sigma = 0.75; // Envelope width
 
     // Loop over the flat source region.
     IntVect cc;
@@ -75,8 +75,8 @@ void envelopeExtrusionScal (FArrayBox&       a_destFAB,
                             const FArrayBox& a_flatSrcFAB,        // comp assumed to be zero
                             const FArrayBox& a_flatBackGroundFAB) // comp assumed to be zero
 {
-    const Real m = 20.0;    // Envelope slope
-    const Real sigma = 0.5; // Envelope width
+    const Real m = 40.0;    // Envelope slope
+    const Real sigma = 0.75; // Envelope width
 
     // Loop over the flat source region.
     IntVect cc;
