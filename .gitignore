@@ -30,3 +30,4 @@ doc/*.log
 .project
 .settings/
 DNS/
+exec/DJL3D_Trial*/
