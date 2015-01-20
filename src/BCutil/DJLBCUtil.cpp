@@ -38,6 +38,72 @@ Real DJLBCUtil::s_z0 = 0.8;
 
 
 // -----------------------------------------------------------------------------
+// Extrude state variable in spanwise dir.
+// -----------------------------------------------------------------------------
+void envelopeExtrusionVel (FArrayBox&       a_destFAB,
+                           const int        a_destComp,
+                           const Box&       a_valid,
+                           const Box&       a_domBox,
+                           const FArrayBox& a_flatSrcFAB) // comp assumed to be zero
+{
+    const Real m = 20.0;    // Envelope slope
+    const Real sigma = 0.5; // Envelope width
+
+    // Loop over the flat source region.
+    IntVect cc;
+    for (cc[2] = a_valid.smallEnd(2); cc[2] <= a_valid.bigEnd(2); ++cc[2]) {
+        for (cc[0] = a_valid.smallEnd(0); cc[0] <= a_valid.bigEnd(0); ++cc[0]) {
+            cc[1] = 0;
+            const Real val = a_flatSrcFAB(cc,0);
+            const Real jcenter = 0.5 * Real(a_domBox.bigEnd(1) + a_domBox.smallEnd(0));
+            const Real jsize = Real(a_domBox.size(1));
+            Real jfrac; // Range = -0.5 to 0.5
+            Real amp;   // Range = 0.0 to 1.0
+
+            for (cc[1] = a_valid.smallEnd(1); cc[1] <= a_valid.bigEnd(1); ++cc[1]) {
+                jfrac = (Real(cc[1]) - jcenter) / jsize;
+                amp = 0.5*(tanh(m*(jfrac+0.5*sigma))-tanh(m*(jfrac-0.5*sigma)));
+                a_destFAB(cc,a_destComp) = amp*val;
+            }
+        }
+    }
+}
+void envelopeExtrusionScal (FArrayBox&       a_destFAB,
+                            const int        a_destComp,
+                            const Box&       a_valid,
+                            const Box&       a_domBox,
+                            const FArrayBox& a_flatSrcFAB,        // comp assumed to be zero
+                            const FArrayBox& a_flatBackGroundFAB) // comp assumed to be zero
+{
+    const Real m = 20.0;    // Envelope slope
+    const Real sigma = 0.5; // Envelope width
+
+    // Loop over the flat source region.
+    IntVect cc;
+    for (cc[2] = a_valid.smallEnd(2); cc[2] <= a_valid.bigEnd(2); ++cc[2]) {
+        for (cc[0] = a_valid.smallEnd(0); cc[0] <= a_valid.bigEnd(0); ++cc[0]) {
+            cc[1] = 0;
+            const Real val = a_flatSrcFAB(cc,0);
+            const Real bgval = a_flatBackGroundFAB(cc,0);
+
+            const Real jcenter = 0.5 * Real(a_domBox.bigEnd(1) + a_domBox.smallEnd(0));
+            const Real jsize = Real(a_domBox.size(1));
+            Real jfrac; // Range = -0.5 to 0.5
+            Real amp;   // Range = 0.0 to 1.0
+
+            for (cc[1] = a_valid.smallEnd(1); cc[1] <= a_valid.bigEnd(1); ++cc[1]) {
+                jfrac = (Real(cc[1]) - jcenter) / jsize;
+                amp = 0.5*(tanh(m*(jfrac+0.5*sigma))-tanh(m*(jfrac-0.5*sigma)));
+                a_destFAB(cc,a_destComp) = amp*val + (1.0-amp)*bgval;
+            }
+        }
+    }
+}
+
+
+
+
+// -----------------------------------------------------------------------------
 // Default constructor
 // -----------------------------------------------------------------------------
 DJLBCUtil::DJLBCUtil ()
@@ -319,25 +385,7 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
         }
 
         // Extrude velocity to spanwise dir.
-        IntVect cc;
-        for (cc[2] = valid.smallEnd(2); cc[2] <= valid.bigEnd(2); ++cc[2]) {
-            for (cc[0] = valid.smallEnd(0); cc[0] <= valid.bigEnd(0); ++cc[0]) {
-                cc[1] = 0;
-                const Real val = flatVelFAB(cc,0);
-
-                const int jcenter = (domBox.bigEnd(1) + domBox.smallEnd(0)) / 2;
-                const Real jwidth = Real(domBox.size(1)) / 10.0;
-                int jdist;
-                Real amp, arg;
-
-                for (cc[1] = valid.smallEnd(1); cc[1] <= valid.bigEnd(1); ++cc[1]) {
-                    jdist = cc[1] - jcenter;
-                    arg = Real(jdist) / jwidth;
-                    amp = exp(-0.5*arg*arg);
-                    a_velFAB(cc,a_velComp) = amp*val;
-                }
-            }
-        }
+        envelopeExtrusionVel(a_velFAB, a_velComp, valid, domBox, flatVelFAB);
 
     } else {
         std::ostringstream errmsg;
@@ -583,26 +631,7 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
             }
 
             // Extrude scalar in spanwise dir.
-            IntVect cc;
-            for (cc[2] = valid.smallEnd(2); cc[2] <= valid.bigEnd(2); ++cc[2]) {
-                for (cc[0] = valid.smallEnd(0); cc[0] <= valid.bigEnd(0); ++cc[0]) {
-                    cc[1] = 0;
-                    const Real val = flatScalarFAB(cc,0);
-                    const Real bgval = flatBackGroundFAB(cc,0);
-
-                    const int jcenter = (domBox.bigEnd(1) + domBox.smallEnd(0)) / 2;
-                    const Real jwidth = Real(domBox.size(1)) / 10.0;
-                    int jdist;
-                    Real amp, arg;
-
-                    for (cc[1] = valid.smallEnd(1); cc[1] <= valid.bigEnd(1); ++cc[1]) {
-                        jdist = cc[1] - jcenter;
-                        arg = Real(jdist) / jwidth;
-                        amp = exp(-0.5*arg*arg);
-                        a_scalarFAB(cc,a_scalarComp) = amp*val + (1.0-amp)*bgval;
-                    }
-                }
-            }
+            envelopeExtrusionScal(a_scalarFAB, a_scalarComp, valid, domBox, flatScalarFAB, flatBackGroundFAB);
 
         } else {
             std::ostringstream errmsg;
@@ -759,7 +788,7 @@ void DJLBCUtil::fillVelSpongeLayerTarget (FArrayBox&           a_target,
 
 
 // // -----------------------------------------------------------------------------
-// // basicScalarFuncBC   (Extrapolate BCs)
+// // basicScalarFuncBC
 // // Sets physical BCs on a generic passive scalar.
 // // Chombo uses 1st order extrap
 // // -----------------------------------------------------------------------------
