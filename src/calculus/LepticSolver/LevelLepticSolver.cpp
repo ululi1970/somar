@@ -404,11 +404,11 @@ void LevelLepticSolver::setCrsePhiPtr (const LevelData<FArrayBox>* a_crsePhiPtr)
 // -----------------------------------------------------------------------------
 void LevelLepticSolver::setDefaultParameters ()
 {
-    setParameters(4,        // a_maxOrder
+    setParameters(6,        // a_maxOrder (4)
                   1.0e-15,  // a_eps
                   1.0e-15,  // a_hang
                   0,        // a_normType
-                  0,        // a_verbosity
+                  0,        // a_verbosity (0)
                   1.0e-14); // a_horizRhsTol
 
     setHorizMGParameters(5,         // a_imin
@@ -531,8 +531,9 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
     krylovSolver.define(&*m_opPtr, true);
     krylovSolver.m_imax = 80;
     krylovSolver.m_verbosity = 0;
-    krylovSolver.m_numRestarts = 0;
+    krylovSolver.m_numRestarts = 5;
     krylovSolver.m_normType = m_normType;
+    bool krylovSolverWasUsed = false;
 
 
     // Initialization ----------------------------------------------------------
@@ -712,7 +713,9 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
             }
 
             // If we are not converging, use a Krylov solver.
-            if (redu <= m_hang && useKrylovSolver) {
+            if (redu <= m_hang && useKrylovSolver
+                && order == maxOrder) {
+
                 // Solve with initial guess = 0.
                 m_opPtr->setToZero(vertPhi);
                 krylovSolver.solve(vertPhi, *rhsPtr);
@@ -725,6 +728,8 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
                 if (m_verbosity >= 4) {
                     pout() << " Relative residual norm (krylov solver) = " << relResNorm << endl;
                 }
+
+                krylovSolverWasUsed = true;
             }
 
             // Set up RHS.
@@ -733,7 +738,9 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
 
             // Check convergence status.
             redu = prevRelResNorm - relResNorm;
-            if (redu > m_hang) {
+            if (redu > m_hang
+                || order < maxOrder) {
+
                 // We are converging. Use correction.
                 this->addVerticalCorrection(phiTotal, vertPhi);
 
@@ -769,6 +776,7 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
                 }
                 break;
             }
+            // this->addVerticalCorrection(phiTotal, vertPhi);
 
             // Should we turn off the horizontal solver?
             if (LevelGeometry::isDiagonal()) {
@@ -800,6 +808,8 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
             pout() << " Leptic solver blew up." << endl;
         }
     }
+
+    if (krylovSolverWasUsed) pout() << "LK" << flush; else pout() << "L" << flush;
 }
 
 
