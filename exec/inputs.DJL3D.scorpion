@@ -2,9 +2,9 @@ ibc.problem = 8                # 8 = DJL
 ibc.useBackgroundScalar = 1
 
 
-# amr.restart_file = chkpt_000050.2d.hdf5
-amr.gravityMethod = 1          # [1]   0 = none, 1 = explicit, 2 = implicit
-amr.gravityTheta = 0.65         # [0.6] 0.0 = Forward Euler, 0.5 = Crank-Nicolson, 1.0 = Backwards Euler
+# amr.restart_file = chkpt_000175.3d.hdf5
+amr.gravityMethod = 2          # [1]   0 = none, 1 = explicit, 2 = implicit
+amr.gravityTheta = 0.52         # [0.6] 0.0 = Forward Euler, 0.5 = Crank-Nicolson, 1.0 = Backwards Euler
 # les.proc_frac = 0.0
 amr.verbosity = 1
 
@@ -13,27 +13,33 @@ geometry.coordMap = 0           # 0 = Cartesian, 1 = Twisted, 2 = Beam generatio
 
 ### Base grid
 amr.length = 128.0 128.0 1.0
-amr.nx = 32 16 32
-# amr.nx = 128 64
+# # amr.nx = 32 16 32
+# # amr.nx = 128 64
 # amr.nx = 256 256 128
-# amr.nx = 512 128
-# amr.nx = 1024 512
+# # amr.nx = 512 128
+# # amr.nx = 1024 512
+# amr.splitDirs = 1 1 0            # [1 1 1]
+# amr.isPeriodic = 0 0 0           # [0 0 0]
+# amr.max_grid_size = 0 0 0
+
+# Scorpion w/ 8 procs
+amr.nx = 32 32 32
 amr.splitDirs = 1 1 0            # [1 1 1]
-amr.isPeriodic = 0 0 0           # [0 0 0]
 amr.max_grid_size = 0 0 0
 
 
+
 ### Regridding
-amr.maxlevel = 1
+amr.maxlevel = 2
 amr.regrid_intervals = 4 4 4 4 4
 amr.refratio = 4 1 1   # Must set if maxlevel > 0
-# amr.refratio_lev0 = 4 4
+amr.refratio_lev0 = 2 2 2
 # amr.tag_buffer_size = 1
 # amr.block_factor = 8           # [8]
 # amr.grid_buffer_size = 1       # [1]
 # amr.fill_ratio = 0.80          # [0.80]
 
-amr.tags_grow = 0                       # [0]
+amr.tags_grow = 3                       # [0]
 # amr.vel_tag_tol = 0.0005                   # [0.0] 0 to turn off
 # amr.buoyancy_tag_tol = 0.00004               # [0.0] 0 to turn off
 # amr.magvort_tag_quota. = 0.25        # [0.0] Fraction of max|vort| on each level. 0 to turn off.
@@ -43,9 +49,9 @@ amr.vert_extrude_tags = 1
 
 
 ### Timestepping
-amr.final = 100.0
+amr.final = 200.0
 amr.maxsteps = 1000
-amr.cfl = 0.9
+amr.cfl = 0.90
 # amr.max_dt = 0.005
 # amr.fixed_dt = -1.0                  # [-1.0]
 # amr.init_dt_multiplier = 0.1         # [1.0]
@@ -84,7 +90,7 @@ plot.checkpoint_interval = 25
 plot.writeScalars = 1
 plot.writeScalarsMinusBackground = 1
 plot.writePressure = 1
-plot.writeDisplacement = 1           # [0]
+plot.writeDisplacement = 0           # [0]
 plot.writeDivergence = 1             # [0]
 plot.writeLambda = 1                 # [0]
 # plot.writeGradELambda = 1            # [0]
@@ -115,6 +121,7 @@ advection.normalPredOrderVel = 2          # [2] 0=CTU, 1=PLM, 2=PPM
 advection.useFourthOrderSlopesVel = 1     # [1]
 advection.useLimitingVel = 0              # [0]
 advection.useHighOrderLimiterVel = 0      # [0]
+advection.nonlinearDifferencingForm = 0   # [0] -1=None, 0=Conservative, 1=Advective
 
 advection.normalPredOrderScal = 2         # [2] 0=CTU, 1=PLM, 2=PPM
 advection.useFourthOrderSlopesScal = 1    # [1]
@@ -129,12 +136,12 @@ advection.useHighOrderLimiterScal = 1     # [0]
 projection.isIncompressible = 1           # [1]
 # projection.initial_pressure_iters = 1     # [1]
 # projection.level_projection_iters = 1     # [1]
-# projection.doSyncProjection = 1           # [1]
-# projection.sync_projection_iters = 1      # [1]
-# projection.initial_projection_iters = 1   # [1]
+# projection.doSyncProjection = 0           # [1]
+# projection.sync_projection_iters = 0      # [1]
+# projection.initial_projection_iters = 0   # [1]
 # projection.applyVDCorrection = 1          # [0]
 # projection.etaLambda = 0.9                # [0.0]
-# projection.applySyncCorrection = 1        # [1]
+# projection.applySyncCorrection = 0        # [1]
 # projection.divTol = 1e-6                  # Not yet in use
 # projection.divNormType = 0                # Not yet in use
 
@@ -151,7 +158,7 @@ AMRMG.imin = 5                  # [5]       Min number of V-cycles
 AMRMG.imax = 20                 # [20]      Max number of V-cycles
 AMRMG.hang = 1e-15              # [1e-15]
 AMRMG.normThresh = 1e-30        # [1e-30]
-AMRMG.maxDepth = 1             # [-1]      Max MG depth (-1=as deep as possible)
+AMRMG.maxDepth = -1             # [-1]      Max MG depth (-1=as deep as possible)
 AMRMG.verbosity = 2             # [3]
 
 bottom.eps = 1e-6               # [1e-6]    Solver tolerance
