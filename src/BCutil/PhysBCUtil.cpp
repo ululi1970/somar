@@ -475,7 +475,7 @@ void PhysBCUtil::fillSpongeLayerSrcTerm (LevelData<FArrayBox>&       a_srcTerm,
                         ramp = this->spongeLayerRamp(ratio);
 
                         srcTermFAB(cc,comp) = coeff * ramp * (targetFAB(targetfc) - stateFAB(cc,comp));
-// spongeProfile[dit](cc) = coeff * ramp;
+
                     } // end loop over sponge box (bit)
                 } // end loop over state components (comp)
             } // end loop over grids (dit)
