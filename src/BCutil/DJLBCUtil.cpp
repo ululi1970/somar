@@ -48,7 +48,6 @@ Real DJLBCUtil::s_z0 = 0.8;
 // static const Real rotAngle = 0.0 * Pi/180.0;
 // static const Real sinA = sin(rotAngle);
 // static const Real cosA = cos(rotAngle);
-// static const Real fileScale = 1;
 
 // Oblique problem
 static const Real m = 1.0 / 6.4; // Envelope slope
@@ -58,7 +57,6 @@ static const Real offsety = 128.0;
 static const Real rotAngle = 45.0 * Pi/180.0;
 static const Real sinA = sin(rotAngle);
 static const Real cosA = cos(rotAngle);
-static const Real fileScale = 4;
 
 
 // -----------------------------------------------------------------------------
@@ -71,8 +69,12 @@ Real readDJLICFile (Vector<Vector<Real> >& a_eta,
                     const int              a_nx,
                     const int              a_nz)
 {
+    const ProblemContext* ctx = ProblemContext::getInstance();
+    const int L = int(ctx->domainLength[0]);
+    const int H = int(ctx->domainLength[SpaceDim-1]);
+
     char infileName[100];
-    sprintf(infileName, "DJLIC_%dx%d.bin", a_nx, a_nz);
+    sprintf(infileName, "DJLIC_%don%dx%don%d.bin", L, a_nx, H, a_nz);
     pout() << "infileName = " << infileName << endl;
     std::ifstream infile;
     infile.open(infileName, ios::in | ios::binary);
@@ -104,11 +106,25 @@ Real readDJLICFile (Vector<Vector<Real> >& a_eta,
     infile.read((char*)&x[0], sizeof(double)*x.size());
     infile.seekg(4, ios::cur);
 
+    Real fileDx = x[1] - x[0];
+    Real thisDx = 512.0 / a_nx;
+    if (abs(fileDx-thisDx) > 1.0e-9) {
+        pout() << "fileDx = " << fileDx << "\tthisDx = " << thisDx << endl;
+        MayDay::Error("dx is not properly set");
+    }
+
     // z
     Vector<double> z(a_nz+1, 0.0);
     infile.seekg(4, ios::cur);
     infile.read((char*)&z[0], sizeof(double)*z.size());
     infile.seekg(4, ios::cur);
+
+    Real fileDz = z[1] - z[0];
+    Real thisDz = 1.0 / a_nz;
+    if (abs(fileDz-thisDz) > 1.0e-9) {
+        pout() << "fileDz = " << fileDz << "\tthisDz = " << thisDz << endl;
+        MayDay::Error("dz is not properly set");
+    }
 
     // eta
     CH_assert(a_eta.size() >= a_nz+1);
@@ -128,6 +144,117 @@ Real readDJLICFile (Vector<Vector<Real> >& a_eta,
 
     return ((Real)c);
 }
+
+// -----------------------------------------------------------------------------
+// Computes the u DJL solution over a horizontal slice.
+// u = c*eta_z (but this assumes eta is already scaled by c)
+// -----------------------------------------------------------------------------
+void fill_uDJL (Vector<Real>&       a_uDJL,    // CC
+                const Vector<Real>& a_etaTop,  // NC
+                const Vector<Real>& a_etaBot,  // NC
+                const Real          a_dz)
+{
+    // Allocate solution
+    const int Nx = a_etaTop.size();
+    CH_assert(a_etaBot.size() == Nx);
+    a_uDJL.resize(Nx);
+
+    // Compute solution
+    const Real scale = 0.5 / a_dz;
+    for (int i = 0; i < Nx; ++i) {
+        Real detar = a_etaTop[i+1] - a_etaBot[i+1];
+        Real detal = a_etaTop[i  ] - a_etaBot[i  ];
+        a_uDJL[i] = (detar + detal) * scale;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Computes the w DJL solution over a horizontal slice.
+// w = -c*eta_x (but this assumes eta is already scaled by c)
+// -----------------------------------------------------------------------------
+void fill_wDJL (Vector<Real>&       a_wDJL,    // CC
+                const Vector<Real>& a_etaTop,  // NC
+                const Vector<Real>& a_etaBot,  // NC
+                const Real          a_dx)
+{
+    // Allocate solution
+    const int Nx = a_etaTop.size();
+    CH_assert(a_etaBot.size() == Nx);
+    a_wDJL.resize(Nx);
+
+    // Compute solution
+    const Real scale = -0.5 / a_dx;
+    for (int i = 0; i < Nx; ++i) {
+        Real detat = a_etaTop[i+1] - a_etaTop[i  ];
+        Real detab = a_etaBot[i+1] - a_etaBot[i  ];
+        a_wDJL[i] = (detat + detab) * scale;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Converts a NC horizontal slice of data in a vector to CC.
+// -----------------------------------------------------------------------------
+void convertSliceNC2CC (Vector<Real>&       a_cc,
+                        const Vector<Real>& a_ncTop,
+                        const Vector<Real>& a_ncBot)
+{
+    // Allocate
+    const int Nx = a_ncTop.size();
+    CH_assert(a_ncBot.size() == Nx);
+    a_cc.resize(Nx);
+
+    // Convert
+    const Real scale = 0.25;
+    for (int i = 0; i < Nx; ++i) {
+        Real topSum = a_ncTop[i  ] + a_ncTop[i+1];
+        Real botSum = a_ncBot[i  ] + a_ncBot[i+1];
+        a_cc[i] = scale * (topSum + botSum);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Computes the b DJL solution over a horizontal slice.
+// b(x,z) = eta(z-eta(x)) (but this assumes eta is scaled by c)
+// Returns the CC background buoyancy at this slice.
+// -----------------------------------------------------------------------------
+Real fill_bDJL (Vector<Real>&       a_bDJL, // CC
+                const Vector<Real>& a_eta,  // CC
+                const Real          a_c,    // long wave speed
+                const Real          a_z)    // slice location
+{
+    static const Real s_z0 = 0.8; // TEMP!!!
+    static const Real s_d = 0.1;  // TEMP!!!
+
+    // Allocate solution
+    const int Nx = a_eta.size();
+    a_bDJL.resize(Nx);
+
+    // Compute background solution
+    Real rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
+    Real rho        = 0.5 * (1.0 - tanh((a_z - s_z0) / s_d));
+    Real rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
+    Real bgScalar   = (rho - rho_top) / (rho_bottom - rho_top);
+
+    // Compute the DJL solution
+    for (int i = 0; i < Nx; ++i) {
+        Real ztilde = a_z - (a_eta[i] / a_c);
+        rho = 0.5 * (1.0 - tanh((ztilde - s_z0) / s_d));
+        a_bDJL[i] = (rho - rho_top) / (rho_bottom - rho_top);
+    }
+
+    return bgScalar;
+}
+
+// -----------------------------------------------------------------------------
+// Envelope function for extrusion
+// -----------------------------------------------------------------------------
+inline Real envelope (const Real a_yprime)
+{
+    return 0.5*(tanh(m*(a_yprime+0.5*sigma))-tanh(m*(a_yprime-0.5*sigma)));
+}
+
+
+
 
 
 // -----------------------------------------------------------------------------
@@ -500,7 +627,7 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
 
     // Read eta from file.
     Vector<Vector<Real> > eta(Nx[2]+1, Vector<Real>(Nx[0]+1, 0.0));
-    readDJLICFile(eta, Nx[0]/fileScale, Nx[2]);
+    readDJLICFile(eta, Nx[0], Nx[2]);
 
     // Compute locations of cell centers.
     Vector<Real> x(Nx[0]);
@@ -516,26 +643,40 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
     int k = cc[2] - domBox.smallEnd(2);
     for (; cc[2] <= valid.bigEnd(2); ++cc[2], ++k) {
 
-        // Compute DJL velocity on this slice at cell centers...
-        // u = c * eta_z
-        Vector<Real> uDJL(Nx[0], 0.0);
-        for (int i = 0; i < Nx[0]; ++i) {
-            Real detar = eta[k+1][i+1] - eta[k][i+1];
-            Real detal = eta[k+1][i  ] - eta[k][i  ];
-            uDJL[i] = 0.5 * (detar + detal) / physDx[2];
-        }
-        // w = -c * eta_x
-        Vector<Real> wDJL(Nx[0], 0.0);
-        for (int i = 0; i < Nx[0]; ++i) {
-            Real detat = eta[k+1][i+1] - eta[k+1][i];
-            Real detab = eta[k  ][i+1] - eta[k  ][i];
-            wDJL[i] = -0.5 * (detat + detab) / physDx[0];
+        // Construct CC DJL velocity
+        const Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+        Vector<Real> velDJL;
+        if (a_velComp == 2) {
+            fill_wDJL(velDJL, eta[k+1], eta[k], physDx[0]);
+        } else {
+            fill_uDJL(velDJL, eta[k+1], eta[k], physDx[2]);
         }
 
         // Construct splines of DJL velocity
-        CubicSpline uDJLSpline, wDJLSpline;
-        uDJLSpline.solve(uDJL, x);
-        wDJLSpline.solve(wDJL, x);
+        CubicSpline velDJLSpline;
+        velDJLSpline.solve(velDJL, x);
+
+
+
+        // // u = c * eta_z
+        // Vector<Real> uDJL(Nx[0], 0.0);
+        // for (int i = 0; i < Nx[0]; ++i) {
+        //     Real detar = eta[k+1][i+1] - eta[k][i+1];
+        //     Real detal = eta[k+1][i  ] - eta[k][i  ];
+        //     uDJL[i] = 0.5 * (detar + detal) / physDx[2];
+        // }
+        // // w = -c * eta_x
+        // Vector<Real> wDJL(Nx[0], 0.0);
+        // for (int i = 0; i < Nx[0]; ++i) {
+        //     Real detat = eta[k+1][i+1] - eta[k+1][i];
+        //     Real detab = eta[k  ][i+1] - eta[k  ][i];
+        //     wDJL[i] = -0.5 * (detat + detab) / physDx[0];
+        // }
+
+        // // Construct splines of DJL velocity
+        // CubicSpline uDJLSpline, wDJLSpline;
+        // uDJLSpline.solve(uDJL, x);
+        // wDJLSpline.solve(wDJL, x);
 
         // Loop over this horizontal slice
         cc[0] = valid.smallEnd(0);
@@ -546,34 +687,59 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
             int j = cc[1] - domBox.smallEnd(1);
             for (; cc[1] <= valid.bigEnd(1); ++cc[1], ++j) {
 
+                // // Compute this cell's location.
+                // Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
+                // Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
+
+                // // Compute the location of the "source" DJL solution
+                // // and our distance away from the center of extrusion.
+                // Real srcX = thisY*sinA + thisX*cosA;
+                // Real dist = thisY*cosA - thisX*sinA;
+
+                // // Interpolate the DJL solution at the source location.
+                // Real srcU = ((minX <= srcX && srcX <= maxX)? uDJLSpline.interp(srcX): 0.0);
+                // Real srcW = ((minX <= srcX && srcX <= maxX)? wDJLSpline.interp(srcX): 0.0);
+
+                // // Now, rotate the source solution into position
+                // Real rotVel;
+                // if (a_velComp == 0) {
+                //     rotVel = srcU*cosA;
+                // } else if (a_velComp == 1) {
+                //     rotVel = -srcU*sinA;
+                // } else {
+                //     rotVel = srcW;
+                // }
+
+                // // Compute envelope at this distance from the center of extrusion.
+                // Real envelope = 0.5*(tanh(m*(dist+0.5*sigma))-tanh(m*(dist-0.5*sigma)));
+
+                // // Set 3D field.
+                // a_velFAB(cc, a_velComp) = envelope * rotVel;
+
                 // Compute this cell's location.
                 Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
                 Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
 
                 // Compute the location of the "source" DJL solution
                 // and our distance away from the center of extrusion.
-                Real srcX = thisY*sinA + thisX*cosA;
-                Real dist = thisY*cosA - thisX*sinA;
+                Real xprime =  thisX*cosA + thisY*sinA;
+                Real yprime = -thisX*sinA + thisY*cosA;
 
                 // Interpolate the DJL solution at the source location.
-                Real srcU = ((minX <= srcX && srcX <= maxX)? uDJLSpline.interp(srcX): 0.0);
-                Real srcW = ((minX <= srcX && srcX <= maxX)? wDJLSpline.interp(srcX): 0.0);
+                Real srcVel = ((minX <= xprime && xprime <= maxX)? velDJLSpline.interp(xprime): 0.0);
 
                 // Now, rotate the source solution into position
-                Real rotVel;
                 if (a_velComp == 0) {
-                    rotVel = srcU*cosA;
+                    srcVel *= cosA;
                 } else if (a_velComp == 1) {
-                    rotVel = -srcU*sinA;
-                } else {
-                    rotVel = srcW;
+                    srcVel *= sinA;
                 }
 
                 // Compute envelope at this distance from the center of extrusion.
-                Real envelope = 0.5*(tanh(m*(dist+0.5*sigma))-tanh(m*(dist-0.5*sigma)));
+                Real env = envelope(yprime);
 
                 // Set 3D field.
-                a_velFAB(cc, a_velComp) = envelope * rotVel;
+                a_velFAB(cc, a_velComp) = env * srcVel;
 
             } // end loop over y (cc[1] and j)
         } // end loop over x (cc[0] and i)
@@ -823,7 +989,7 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
 
     // Read eta from file.
     Vector<Vector<Real> > eta(Nx[2]+1, Vector<Real>(Nx[0]+1, 0.0));
-    const Real c = readDJLICFile(eta, Nx[0]/fileScale, Nx[2]);
+    const Real c = readDJLICFile(eta, Nx[0], Nx[2]);
 
     // Compute locations of cell centers.
     Vector<Real> x(Nx[0]);
@@ -839,21 +1005,27 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
     int k = cc[2] - domBox.smallEnd(2);
     for (; cc[2] <= valid.bigEnd(2); ++cc[2], ++k) {
 
-        // Compute the background scalar for this slice.
-        Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
-        Real rho_bottom = 0.5 * (1.0 - tanh((0.0   - s_z0) / s_d));
-        Real rho        = 0.5 * (1.0 - tanh((thisZ - s_z0) / s_d));
-        Real rho_top    = 0.5 * (1.0 - tanh((1.0   - s_z0) / s_d));
-        Real bgScalar   = (rho - rho_top) / (rho_bottom - rho_top);
+        // // Compute the background scalar for this slice.
+        // Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+        // Real rho_bottom = 0.5 * (1.0 - tanh((0.0   - s_z0) / s_d));
+        // Real rho        = 0.5 * (1.0 - tanh((thisZ - s_z0) / s_d));
+        // Real rho_top    = 0.5 * (1.0 - tanh((1.0   - s_z0) / s_d));
+        // Real bgScalar   = (rho - rho_top) / (rho_bottom - rho_top);
 
-        // Compute the DJL scalar for this slice.
-        Vector<Real> bDJL(Nx[0], 0.0);
-        for (int i = 0; i < Nx[0]; ++i) {
-            Real ccEta = 0.25 * (eta[k][i] + eta[k+1][i] + eta[k][i+1] + eta[k+1][i+1]);
-            Real z = thisZ - ccEta / c;
-            rho = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
-            bDJL[i] = (rho - rho_top) / (rho_bottom - rho_top);
-        }
+        // // Compute the DJL scalar for this slice.
+        // Vector<Real> bDJL(Nx[0], 0.0);
+        // for (int i = 0; i < Nx[0]; ++i) {
+        //     Real ccEta = 0.25 * (eta[k][i] + eta[k+1][i] + eta[k][i+1] + eta[k+1][i+1]);
+        //     Real z = thisZ - ccEta / c;
+        //     rho = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
+        //     bDJL[i] = (rho - rho_top) / (rho_bottom - rho_top);
+        // }
+
+        // Construct CC DJL buoyancy
+        const Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+        Vector<Real> ccEta, bDJL;
+        convertSliceNC2CC(ccEta, eta[k+1], eta[k]);
+        const Real bgScalar = fill_bDJL(bDJL, ccEta, c, thisZ);
 
         // Construct splines of DJL buoyancy
         CubicSpline bDJLSpline;
@@ -866,23 +1038,41 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
             cc[1] = valid.smallEnd(1);
             for (; cc[1] <= valid.bigEnd(1); ++cc[1]) {
 
+                // // Compute this cell's location.
+                // Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
+                // Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
+
+                // // Compute the location of the "source" DJL solution
+                // // and our distance away from the center of extrusion.
+                // Real srcX = thisY*sinA + thisX*cosA;
+                // Real dist = thisY*cosA - thisX*sinA;
+
+                // // Interpolate the DJL solution at the source location.
+                // Real srcB = ((minX <= srcX && srcX <= maxX)? bDJLSpline.interp(srcX): bgScalar);
+
+                // // Compute envelope at this distance from the center of extrusion.
+                // Real envelope = 0.5*(tanh(m*(dist+0.5*sigma))-tanh(m*(dist-0.5*sigma)));
+
+                // // Set 3D field.
+                // a_scalarFAB(cc,0) = envelope*srcB + (1.0-envelope)*bgScalar;
+
                 // Compute this cell's location.
                 Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
                 Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
 
                 // Compute the location of the "source" DJL solution
                 // and our distance away from the center of extrusion.
-                Real srcX = thisY*sinA + thisX*cosA;
-                Real dist = thisY*cosA - thisX*sinA;
+                Real xprime =  thisX*cosA + thisY*sinA;
+                Real yprime = -thisX*sinA + thisY*cosA;
 
                 // Interpolate the DJL solution at the source location.
-                Real srcB = ((minX <= srcX && srcX <= maxX)? bDJLSpline.interp(srcX): bgScalar);
+                Real srcB = ((minX <= xprime && xprime <= maxX)? bDJLSpline.interp(xprime): bgScalar);
 
                 // Compute envelope at this distance from the center of extrusion.
-                Real envelope = 0.5*(tanh(m*(dist+0.5*sigma))-tanh(m*(dist-0.5*sigma)));
+                Real env = envelope(yprime);
 
                 // Set 3D field.
-                a_scalarFAB(cc,0) = envelope*srcB + (1.0-envelope)*bgScalar;
+                a_scalarFAB(cc,0) = env*srcB + (1.0-env)*bgScalar;
 
             } // end loop over y (cc[1])
         } // end loop over x (cc[0])

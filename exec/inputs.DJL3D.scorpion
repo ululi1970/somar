@@ -28,17 +28,27 @@ geometry.coordMap = 0           # 0 = Cartesian, 1 = Twisted, 2 = Beam generatio
 # amr.refratio = 4 4 1   # Must set if maxlevel > 0
 # amr.refratio_lev0 = 2 2 2
 
-# Oblique problem w/ 16, 64, or 256 procs
-amr.length = 512.0 512.0 1.0  # For oblique problem
+# # Oblique problem w/ 16, 64, or 256 procs
+# amr.length = 512.0 512.0 1.0  # For oblique problem
+# amr.nx = 128 128 32
+# amr.splitDirs = 1 1 0            # [1 1 1]
+# amr.max_grid_size = 0 0 0
+# amr.refratio = 4 4 1   # Must set if maxlevel > 0
+# amr.refratio_lev0 = 4 4 2
+
+# Oblique problem w/ 16, 64, or 256 procs (New, many level strategy)
+amr.length = 512.0 512.0 1.0
 amr.nx = 128 128 32
 amr.splitDirs = 1 1 0            # [1 1 1]
 amr.max_grid_size = 0 0 0
-amr.refratio = 4 4 1   # Must set if maxlevel > 0
-amr.refratio_lev0 = 4 4 2
+amr.refratio = 2 2 2   # Must set if maxlevel > 0
+# amr.refratio_lev0 = 8 8 1
+amr.refratio_lev0 = 4 4 1
+
 
 
 ### Regridding
-amr.maxlevel = 1
+amr.maxlevel = 2
 amr.regrid_intervals = 4 4 4 4 4
 # amr.tag_buffer_size = 1
 # amr.block_factor = 8           # [8]
@@ -56,7 +66,7 @@ amr.vert_extrude_tags = 1
 
 ### Timestepping
 amr.final = 200.0
-amr.maxsteps = 100 #1000
+amr.maxsteps = 10 #1000
 amr.cfl = 0.90
 # amr.max_dt = 0.005
 # amr.fixed_dt = -1.0                  # [-1.0]
