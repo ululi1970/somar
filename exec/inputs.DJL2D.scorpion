@@ -1,0 +1,287 @@
+ibc.problem = 8                # 8 = DJL
+ibc.useBackgroundScalar = 1
+
+
+# amr.restart_file = chkpt_000100.3d.hdf5
+amr.gravityMethod = 2          # [1]   0 = none, 1 = explicit, 2 = implicit
+amr.gravityTheta = 0.52         # [0.6] 0.0 = Forward Euler, 0.5 = Crank-Nicolson, 1.0 = Backwards Euler
+# les.proc_frac = 0.0
+amr.verbosity = 1
+
+### Coordinate map
+geometry.coordMap = 0           # 0 = Cartesian, 1 = Twisted, 2 = Beam generation ridge, 5 = Ledge
+
+### Base grid
+# 8 procs...
+amr.length = 128.0 1.0
+amr.nx = 32 32
+amr.splitDirs = 1 0            # [1 1 1]
+amr.max_grid_size = 0 0
+amr.refratio = 4 1   # Must set if maxlevel > 0
+amr.refratio_lev0 = 2 2
+
+
+### Regridding
+amr.maxlevel = 2
+amr.regrid_intervals = 4 4 4 4 4
+# amr.tag_buffer_size = 1
+# amr.block_factor = 8           # [8]
+# amr.grid_buffer_size = 1       # [1]
+# amr.fill_ratio = 0.80          # [0.80]
+
+amr.tags_grow = 3                       # [0]
+# amr.vel_tag_tol = 0.0005                   # [0.0] 0 to turn off
+# amr.buoyancy_tag_tol = 0.00004               # [0.0] 0 to turn off
+# amr.magvort_tag_quota. = 0.25        # [0.0] Fraction of max|vort| on each level. 0 to turn off.
+# amr.vort_tag_tol = 0 0 0.001
+# amr.pressure_tag_tol = 0.000005         # [0.0] 0 to turn off
+amr.vert_extrude_tags = 1
+
+
+### Timestepping
+amr.final = 100.0
+amr.maxsteps = 1000
+amr.cfl = 0.90
+# amr.max_dt = 0.005
+# amr.fixed_dt = -1.0                  # [-1.0]
+# amr.init_dt_multiplier = 0.1         # [1.0]
+# amr.max_dt_grow = 1.5                # [1.5]
+# amr.useSubcycling = 0                # [1]
+amr.limitDtViaViscosity = 0          # [1]
+amr.limitDtViaDiffusion = 0          # [1]
+amr.limitDtViaPressureGradient = 1   # [0]
+amr.limitDtViaInternalWaveSpeed = 1  # [0]
+
+
+### Sponge layer
+ibc.useSpongeLayer = 1
+ibc.spongeWidthFracLo = 0.08 0.00
+ibc.spongeWidthFracHi = 0.08 0.00
+ibc.spongeDtMultLo = 15.0 15.0
+ibc.spongeDtMultHi = 15.0 15.0
+
+
+### Viscosity / diffusion
+amr.scal_diffusion_coeffs = 0.0000000
+amr.viscosity = 0.0000000
+# amr.viscous_solver_type = 2          # [2] 0=backwardEuler, 1=CrankNicolson, 2=TGA
+# amr.diffusive_solver_type = 2        # [2] 0=backwardEuler, 1=CrankNicolson, 2=TGA
+# amr.smooth_after_regrid = 1          # [0]
+# amr.postRegrid_smoothing_coeff = 4.0
+
+
+### Plot files
+# plot.plot_prefix = plot_             # [plot_]
+# plot.checkpoint_prefix = chkpt_      # [chkpt_]
+# plot.plot_period = 0.1
+plot.plot_interval = 1
+plot.checkpoint_interval = 25
+
+plot.writeScalars = 1
+plot.writeScalarsMinusBackground = 1
+plot.writePressure = 1
+plot.writeDisplacement = 0           # [0]
+plot.writeDivergence = 1             # [0]
+plot.writeLambda = 1                 # [0]
+# plot.writeGradELambda = 1            # [0]
+plot.writeVorticity = 1              # [0]
+# plot.writeProcIDs = 1                # [0]
+# plot.writeLevelIDs = 1               # [0]
+# plot.writeGrids = 1                  # [0]
+plot.writeGeometry = 0               # [0]
+
+### Debugging parameters
+# amr.write_stdout = 1
+# amr.bogus_val = 1e300          # Only effective in debug mode
+# amr.verbosity = 2              # [0]
+
+
+### Refluxing
+amr.advective_momentum_reflux = 0     # [0]
+amr.diffusive_momentum_reflux = 0     # [0]
+amr.implicit_momentum_reflux = 0      # [0]
+amr.advective_scalar_reflux = 0       # [0]
+amr.diffusive_scalar_reflux = 0       # [0]
+amr.implicit_scalar_reflux = 0        # [0]
+amr.advective_lambda_reflux = 0       # [0]
+
+
+### Advection scheme parameters
+advection.normalPredOrderVel = 2          # [2] 0=CTU, 1=PLM, 2=PPM
+advection.useFourthOrderSlopesVel = 1     # [1]
+advection.useLimitingVel = 0              # [0]
+advection.useHighOrderLimiterVel = 0      # [0]
+advection.nonlinearDifferencingForm = 0   # [0] -1=None, 0=Conservative, 1=Advective
+
+advection.normalPredOrderScal = 2         # [2] 0=CTU, 1=PLM, 2=PPM
+advection.useFourthOrderSlopesScal = 1    # [1]
+advection.useLimitingScal = 1             # [1]
+advection.useHighOrderLimiterScal = 1     # [0]
+
+# advection.updateScheme = 0                # [0] 0=FiniteVolume, 1=RK3
+# amr.use_nonlinear_advection = 1
+
+
+### Projection & pressure initialization settings
+projection.isIncompressible = 1           # [1]
+# projection.initial_pressure_iters = 1     # [1]
+# projection.level_projection_iters = 1     # [1]
+# projection.doSyncProjection = 0           # [1]
+# projection.sync_projection_iters = 0      # [1]
+# projection.initial_projection_iters = 0   # [1]
+# projection.applyVDCorrection = 1          # [0]
+# projection.etaLambda = 0.9                # [0.0]
+# projection.applySyncCorrection = 0        # [1]
+# projection.divTol = 1e-6                  # Not yet in use
+# projection.divNormType = 0                # Not yet in use
+
+
+### Solver settings
+AMRMG.eps = 1e-6                # [1e-6]    Solver tolerance
+AMRMG.relax_mode =  1            # [2]       1 = levelGSRB, 3 = lineGSRB                  # WAS 3
+AMRMG.num_smooth_down    = 4    # [2]
+AMRMG.num_smooth_up      = 4    # [2]
+AMRMG.num_smooth_bottom  = 4    # [2]       MG bottom smoothing iters
+AMRMG.num_smooth_precond = 4    # [2]
+AMRMG.numMG = 1                 # [1]       1=V-cycle, 2=W-cycle, etc...
+AMRMG.imin = 5                  # [5]       Min number of V-cycles
+AMRMG.imax = 20                 # [20]      Max number of V-cycles
+AMRMG.hang = 1e-15              # [1e-15]
+AMRMG.normThresh = 1e-30        # [1e-30]
+AMRMG.maxDepth = -1             # [-1]      Max MG depth (-1=as deep as possible)
+AMRMG.verbosity = 2             # [3]
+
+bottom.eps = 1e-6               # [1e-6]    Solver tolerance
+bottom.reps = 1e-12             # [1e-12]   Solver relative tolerance
+bottom.imax = 80                # [80]      Max BiCGStab iterations
+bottom.numRestarts = 5          # [5]       Max BiCGStab restarts
+bottom.hang = 1e-15             # [1e-8]
+bottom.small = 1e-30            # [1e-30]
+bottom.normType = 0             # [2]
+bottom.verbosity = 0            # [3]
+
+
+### Exact projection solver overrides (For FC advecting velocities)
+# MACprojection_AMRMG.eps = 1e-6
+# MACprojection_AMRMG.relax_mode = 2
+# MACprojection_AMRMG.num_smooth_down = 4
+# MACprojection_AMRMG.num_smooth_up = 4
+# MACprojection_AMRMG.num_smooth_bottom = 2
+# MACprojection_AMRMG.num_smooth_precond = 2
+# MACprojection_AMRMG.numMG = 1
+# MACprojection_AMRMG.imin = 5
+# MACprojection_AMRMG.imax = 20
+# MACprojection_AMRMG.hang = 1e-15
+# MACprojection_AMRMG.normThresh = 1e-30
+# MACprojection_AMRMG.maxDepth = -1
+# MACprojection_AMRMG.verbosity = 2
+
+# MACprojection_bottom.eps = 1e-6
+# MACprojection_bottom.reps = 1e-12
+# MACprojection_bottom.imax = 80
+# MACprojection_bottom.numRestarts = 5
+# MACprojection_bottom.hang = 1e-15
+# MACprojection_bottom.small = 1e-30
+# MACprojection_bottom.normType = 2
+# MACprojection_bottom.verbosity = 0
+
+
+### Approximate projection solver overrides (For CC velocities)
+# CCprojection_AMRMG.eps = 1e-6
+# CCprojection_AMRMG.relax_mode = 2
+# CCprojection_AMRMG.num_smooth_down = 4
+# CCprojection_AMRMG.num_smooth_up = 4
+# CCprojection_AMRMG.num_smooth_bottom = 2
+# CCprojection_AMRMG.num_smooth_precond = 2
+# CCprojection_AMRMG.numMG = 1
+# CCprojection_AMRMG.imin = 5
+# CCprojection_AMRMG.imax = 20
+# CCprojection_AMRMG.hang = 1e-15
+# CCprojection_AMRMG.normThresh = 1e-30
+# CCprojection_AMRMG.maxDepth = -1
+# CCprojection_AMRMG.verbosity = 3
+
+# CCprojection_bottom.eps = 1e-6
+# CCprojection_bottom.reps = 1e-12
+# CCprojection_bottom.imax = 80
+# CCprojection_bottom.numRestarts = 5
+# CCprojection_bottom.hang = 1e-15
+# CCprojection_bottom.small = 1e-30
+# CCprojection_bottom.normType = 2
+# CCprojection_bottom.verbosity = 0
+
+
+### Sync (approximate) projection solver overrides (For composite CC velocities)
+# syncProjection_AMRMG.eps = 1e-6
+# syncProjection_AMRMG.relax_mode = 1
+# syncProjection_AMRMG.num_smooth_down    = 4
+# syncProjection_AMRMG.num_smooth_up      = 4
+# syncProjection_AMRMG.num_smooth_bottom  = 2
+# syncProjection_AMRMG.num_smooth_precond = 2
+# syncProjection_AMRMG.numMG = 1
+# syncProjection_AMRMG.imin = 5
+# syncProjection_AMRMG.imax = 20
+# syncProjection_AMRMG.hang = 1e-15
+# syncProjection_AMRMG.normThresh = 1e-30
+# syncProjection_AMRMG.maxDepth = -1
+# syncProjection_AMRMG.verbosity = 2
+
+# syncProjection_bottom.eps = 1e-6
+# syncProjection_bottom.reps = 1e-12
+# syncProjection_bottom.imax = 80
+# syncProjection_bottom.numRestarts = 5
+# syncProjection_bottom.hang = 1e-15
+# syncProjection_bottom.small = 1e-30
+# syncProjection_bottom.normType = 0
+# syncProjection_bottom.verbosity = 0
+
+
+### Viscous solver overrides
+# viscous_AMRMG.eps = 1e-10
+# viscous_AMRMG.relax_mode = 2
+# viscous_AMRMG.num_smooth_down = 4
+# viscous_AMRMG.num_smooth_up = 4
+# viscous_AMRMG.num_smooth_bottom = 2
+# viscous_AMRMG.num_smooth_precond = 2
+# viscous_AMRMG.numMG = 1
+# viscous_AMRMG.imin = 5
+# viscous_AMRMG.imax = 20
+# viscous_AMRMG.hang = 1e-15
+# viscous_AMRMG.normThresh = 1e-30
+# viscous_AMRMG.maxDepth = -1
+# viscous_AMRMG.verbosity = 3
+
+# viscous_bottom.eps = 1e-6
+# viscous_bottom.reps = 1e-12
+# viscous_bottom.imax = 80
+# viscous_bottom.numRestarts = 5
+# viscous_bottom.hang = 1e-15
+# viscous_bottom.small = 1e-30
+# viscous_bottom.normType = 2
+# viscous_bottom.verbosity = 0
+
+
+### Volume discrepancy (freestream preservation) solver overrides
+# VD_AMRMG.eps = 1e-6
+# VD_AMRMG.relax_mode = 2
+# VD_AMRMG.num_smooth_down = 4
+# VD_AMRMG.num_smooth_up = 4
+# VD_AMRMG.num_smooth_bottom = 2
+# VD_AMRMG.num_smooth_precond = 2
+# VD_AMRMG.numMG = 1
+# VD_AMRMG.imin = 5
+# VD_AMRMG.imax = 20
+# VD_AMRMG.hang = 1e-15
+# VD_AMRMG.normThresh = 1e-30
+# VD_AMRMG.maxDepth = -1
+# VD_AMRMG.verbosity = 0
+
+# VD_bottom.eps = 1e-6
+# VD_bottom.reps = 1e-12
+# VD_bottom.imax = 80
+# VD_bottom.numRestarts = 5
+# VD_bottom.hang = 1e-15
+# VD_bottom.small = 1e-30
+# VD_bottom.normType = 2
+# VD_bottom.verbosity = 0
+
