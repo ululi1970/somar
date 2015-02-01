@@ -32,42 +32,41 @@
 
 #include "AMRIO.H"
 #include "CubicSpline.H"
-#include "Constants.H"
 #include "Debug.H"
 
 
+// Static variable definitions...
 RealVect DJLBCUtil::s_L = RealVect::Zero;
-Real DJLBCUtil::s_d = 0.1;
-Real DJLBCUtil::s_z0 = 0.8;
 
+const Real DJLBCUtil::s_d = 0.1;        // Thickness of pycnocline
+const Real DJLBCUtil::s_z0 = 0.8;       // Location of pycnocline
 
-// static const Real m = 1.0 / 6.4; // Envelope slope
-// static const Real sigma = 192.0; // Envelope width
-// static const Real offsetx = 0.0;
-// static const Real offsety = 128.0;
-// static const Real rotAngle = 0.0 * Pi/180.0;
-// static const Real sinA = sin(rotAngle);
-// static const Real cosA = cos(rotAngle);
+// // For non-oblique 3D problem
+// const Real DJLBCUtil::s_envSlope = 1.0 / 6.4;   // Envelope slope
+// const Real DJLBCUtil::s_envWidth = 192.0;       // Envelope width
+// const Real DJLBCUtil::s_offsetx = 0.0;          // Pushes the IC into the domain
+// const Real DJLBCUtil::s_offsety = 128.0;        // Pushes the IC into the domain
+// const Real DJLBCUtil::s_rotAngle = 0.0 * Pi/180.0;
 
-// Oblique problem
-static const Real m = 1.0 / 6.4; // Envelope slope
-static const Real sigma = 192.0; // Envelope width
-static const Real offsetx = 128.0;
-static const Real offsety = 128.0;
-static const Real rotAngle = 45.0 * Pi/180.0;
-static const Real sinA = sin(rotAngle);
-static const Real cosA = cos(rotAngle);
+// For oblique 3D problem
+const Real DJLBCUtil::s_envSlope = 1.0 / 6.4;   // Envelope slope
+const Real DJLBCUtil::s_envWidth = 192.0;       // Envelope width
+const Real DJLBCUtil::s_offsetx = 128.0;        // Pushes the IC into the domain
+const Real DJLBCUtil::s_offsety = 128.0;        // Pushes the IC into the domain
+const Real DJLBCUtil::s_rotAngle = 45.0 * Pi/180.0;
+
 
 
 // -----------------------------------------------------------------------------
+// Static utility
 // Reads a_eta from the DJLIC_[a_nx]x[a_nz].bin file.
 // a_eta[i] is a Vector<Real> containing eta(x) at z[i].
 // (a_nx, a_nz) are the number of cell centers in the domain, not nodes!
 // Returns c.
 // -----------------------------------------------------------------------------
-Real readDJLICFile (Vector<Vector<Real> >& a_eta,
-                    const int              a_nx,
-                    const int              a_nz)
+Real DJLBCUtil::readDJLICFile (Vector<Vector<Real> >& a_eta,
+                               const int              a_nx,
+                               const int              a_nz)
 {
     const ProblemContext* ctx = ProblemContext::getInstance();
     const int L = int(ctx->domainLength[0]);
@@ -107,7 +106,7 @@ Real readDJLICFile (Vector<Vector<Real> >& a_eta,
     infile.seekg(4, ios::cur);
 
     Real fileDx = x[1] - x[0];
-    Real thisDx = 512.0 / a_nx;
+    Real thisDx = s_L[0] / a_nx;
     if (abs(fileDx-thisDx) > 1.0e-9) {
         pout() << "fileDx = " << fileDx << "\tthisDx = " << thisDx << endl;
         MayDay::Error("dx is not properly set");
@@ -145,18 +144,20 @@ Real readDJLICFile (Vector<Vector<Real> >& a_eta,
     return ((Real)c);
 }
 
+
 // -----------------------------------------------------------------------------
+// Static utility
 // Computes the u DJL solution over a horizontal slice.
 // u = c*eta_z (but this assumes eta is already scaled by c)
 // -----------------------------------------------------------------------------
-void fill_uDJL (Vector<Real>&       a_uDJL,    // CC
-                const Vector<Real>& a_etaTop,  // NC
-                const Vector<Real>& a_etaBot,  // NC
-                const Real          a_dz)
+void DJLBCUtil::fill_uDJL (Vector<Real>&       a_uDJL,    // CC
+                           const Vector<Real>& a_etaTop,  // NC
+                           const Vector<Real>& a_etaBot,  // NC
+                           const Real          a_dz)
 {
     // Allocate solution
-    const int Nx = a_etaTop.size();
-    CH_assert(a_etaBot.size() == Nx);
+    const int Nx = a_etaTop.size() - 1;
+    CH_assert(a_etaBot.size() == Nx+1);
     a_uDJL.resize(Nx);
 
     // Compute solution
@@ -168,18 +169,20 @@ void fill_uDJL (Vector<Real>&       a_uDJL,    // CC
     }
 }
 
+
 // -----------------------------------------------------------------------------
+// Static utility
 // Computes the w DJL solution over a horizontal slice.
 // w = -c*eta_x (but this assumes eta is already scaled by c)
 // -----------------------------------------------------------------------------
-void fill_wDJL (Vector<Real>&       a_wDJL,    // CC
-                const Vector<Real>& a_etaTop,  // NC
-                const Vector<Real>& a_etaBot,  // NC
-                const Real          a_dx)
+void DJLBCUtil::fill_wDJL (Vector<Real>&       a_wDJL,    // CC
+                           const Vector<Real>& a_etaTop,  // NC
+                           const Vector<Real>& a_etaBot,  // NC
+                           const Real          a_dx)
 {
     // Allocate solution
-    const int Nx = a_etaTop.size();
-    CH_assert(a_etaBot.size() == Nx);
+    const int Nx = a_etaTop.size() - 1;
+    CH_assert(a_etaBot.size() == Nx+1);
     a_wDJL.resize(Nx);
 
     // Compute solution
@@ -191,36 +194,17 @@ void fill_wDJL (Vector<Real>&       a_wDJL,    // CC
     }
 }
 
-// -----------------------------------------------------------------------------
-// Converts a NC horizontal slice of data in a vector to CC.
-// -----------------------------------------------------------------------------
-void convertSliceNC2CC (Vector<Real>&       a_cc,
-                        const Vector<Real>& a_ncTop,
-                        const Vector<Real>& a_ncBot)
-{
-    // Allocate
-    const int Nx = a_ncTop.size();
-    CH_assert(a_ncBot.size() == Nx);
-    a_cc.resize(Nx);
-
-    // Convert
-    const Real scale = 0.25;
-    for (int i = 0; i < Nx; ++i) {
-        Real topSum = a_ncTop[i  ] + a_ncTop[i+1];
-        Real botSum = a_ncBot[i  ] + a_ncBot[i+1];
-        a_cc[i] = scale * (topSum + botSum);
-    }
-}
 
 // -----------------------------------------------------------------------------
+// Static utility
 // Computes the b DJL solution over a horizontal slice.
 // b(x,z) = eta(z-eta(x)) (but this assumes eta is scaled by c)
 // Returns the CC background buoyancy at this slice.
 // -----------------------------------------------------------------------------
-Real fill_bDJL (Vector<Real>&       a_bDJL, // CC
-                const Vector<Real>& a_eta,  // CC
-                const Real          a_c,    // long wave speed
-                const Real          a_z)    // slice location
+Real DJLBCUtil::fill_bDJL (Vector<Real>&       a_bDJL, // CC
+                           const Vector<Real>& a_eta,  // CC
+                           const Real          a_c,    // long wave speed
+                           const Real          a_z)    // slice location
 {
     static const Real s_z0 = 0.8; // TEMP!!!
     static const Real s_d = 0.1;  // TEMP!!!
@@ -245,80 +229,103 @@ Real fill_bDJL (Vector<Real>&       a_bDJL, // CC
     return bgScalar;
 }
 
+
 // -----------------------------------------------------------------------------
+// Static utility
+// Converts a NC horizontal slice of data in a vector to CC.
+// -----------------------------------------------------------------------------
+void DJLBCUtil::convertSliceNC2CC (Vector<Real>&       a_cc,
+                                   const Vector<Real>& a_ncTop,
+                                   const Vector<Real>& a_ncBot)
+{
+    // Allocate
+    const int Nx = a_ncTop.size() - 1;
+    CH_assert(a_ncBot.size() == Nx+1);
+    a_cc.resize(Nx);
+
+    // Convert
+    const Real scale = 0.25;
+    for (int i = 0; i < Nx; ++i) {
+        Real topSum = a_ncTop[i  ] + a_ncTop[i+1];
+        Real botSum = a_ncBot[i  ] + a_ncBot[i+1];
+        a_cc[i] = scale * (topSum + botSum);
+    }
+}
+
+
+// -----------------------------------------------------------------------------
+// Static utility
 // Envelope function for extrusion
 // -----------------------------------------------------------------------------
-inline Real envelope (const Real a_yprime)
+Real DJLBCUtil::extrusionEnvelope (const Real a_yprime)
 {
-    return 0.5*(tanh(m*(a_yprime+0.5*sigma))-tanh(m*(a_yprime-0.5*sigma)));
+    return 0.5*(  tanh(s_envSlope*(a_yprime+0.5*s_envWidth))
+                - tanh(s_envSlope*(a_yprime-0.5*s_envWidth))  );
 }
 
 
+// // -----------------------------------------------------------------------------
+// // Extrude state variable in spanwise dir.
+// // -----------------------------------------------------------------------------
+// void envelopeExtrusionVel (FArrayBox&       a_destFAB,
+//                            const int        a_destComp,
+//                            const Box&       a_valid,
+//                            const Box&       a_domBox,
+//                            const FArrayBox& a_flatSrcFAB) // comp assumed to be zero
+// {
+//     const Real m = 40.0;    // Envelope slope
+//     const Real sigma = 0.75; // Envelope width
 
+//     // Loop over the flat source region.
+//     IntVect cc;
+//     for (cc[2] = a_valid.smallEnd(2); cc[2] <= a_valid.bigEnd(2); ++cc[2]) {
+//         for (cc[0] = a_valid.smallEnd(0); cc[0] <= a_valid.bigEnd(0); ++cc[0]) {
+//             cc[1] = 0;
+//             const Real val = a_flatSrcFAB(cc,0);
+//             const Real jcenter = 0.5 * Real(a_domBox.bigEnd(1) + a_domBox.smallEnd(0));
+//             const Real jsize = Real(a_domBox.size(1));
+//             Real jfrac; // Range = -0.5 to 0.5
+//             Real amp;   // Range = 0.0 to 1.0
 
+//             for (cc[1] = a_valid.smallEnd(1); cc[1] <= a_valid.bigEnd(1); ++cc[1]) {
+//                 jfrac = (Real(cc[1]) - jcenter) / jsize;
+//                 amp = 0.5*(tanh(m*(jfrac+0.5*sigma))-tanh(m*(jfrac-0.5*sigma)));
+//                 a_destFAB(cc,a_destComp) = amp*val;
+//             }
+//         }
+//     }
+// }
+// void envelopeExtrusionScal (FArrayBox&       a_destFAB,
+//                             const int        a_destComp,
+//                             const Box&       a_valid,
+//                             const Box&       a_domBox,
+//                             const FArrayBox& a_flatSrcFAB,        // comp assumed to be zero
+//                             const FArrayBox& a_flatBackGroundFAB) // comp assumed to be zero
+// {
+//     const Real m = 40.0;    // Envelope slope
+//     const Real sigma = 0.75; // Envelope width
 
-// -----------------------------------------------------------------------------
-// Extrude state variable in spanwise dir.
-// -----------------------------------------------------------------------------
-void envelopeExtrusionVel (FArrayBox&       a_destFAB,
-                           const int        a_destComp,
-                           const Box&       a_valid,
-                           const Box&       a_domBox,
-                           const FArrayBox& a_flatSrcFAB) // comp assumed to be zero
-{
-    const Real m = 40.0;    // Envelope slope
-    const Real sigma = 0.75; // Envelope width
+//     // Loop over the flat source region.
+//     IntVect cc;
+//     for (cc[2] = a_valid.smallEnd(2); cc[2] <= a_valid.bigEnd(2); ++cc[2]) {
+//         for (cc[0] = a_valid.smallEnd(0); cc[0] <= a_valid.bigEnd(0); ++cc[0]) {
+//             cc[1] = 0;
+//             const Real val = a_flatSrcFAB(cc,0);
+//             const Real bgval = a_flatBackGroundFAB(cc,0);
 
-    // Loop over the flat source region.
-    IntVect cc;
-    for (cc[2] = a_valid.smallEnd(2); cc[2] <= a_valid.bigEnd(2); ++cc[2]) {
-        for (cc[0] = a_valid.smallEnd(0); cc[0] <= a_valid.bigEnd(0); ++cc[0]) {
-            cc[1] = 0;
-            const Real val = a_flatSrcFAB(cc,0);
-            const Real jcenter = 0.5 * Real(a_domBox.bigEnd(1) + a_domBox.smallEnd(0));
-            const Real jsize = Real(a_domBox.size(1));
-            Real jfrac; // Range = -0.5 to 0.5
-            Real amp;   // Range = 0.0 to 1.0
+//             const Real jcenter = 0.5 * Real(a_domBox.bigEnd(1) + a_domBox.smallEnd(0));
+//             const Real jsize = Real(a_domBox.size(1));
+//             Real jfrac; // Range = -0.5 to 0.5
+//             Real amp;   // Range = 0.0 to 1.0
 
-            for (cc[1] = a_valid.smallEnd(1); cc[1] <= a_valid.bigEnd(1); ++cc[1]) {
-                jfrac = (Real(cc[1]) - jcenter) / jsize;
-                amp = 0.5*(tanh(m*(jfrac+0.5*sigma))-tanh(m*(jfrac-0.5*sigma)));
-                a_destFAB(cc,a_destComp) = amp*val;
-            }
-        }
-    }
-}
-void envelopeExtrusionScal (FArrayBox&       a_destFAB,
-                            const int        a_destComp,
-                            const Box&       a_valid,
-                            const Box&       a_domBox,
-                            const FArrayBox& a_flatSrcFAB,        // comp assumed to be zero
-                            const FArrayBox& a_flatBackGroundFAB) // comp assumed to be zero
-{
-    const Real m = 40.0;    // Envelope slope
-    const Real sigma = 0.75; // Envelope width
-
-    // Loop over the flat source region.
-    IntVect cc;
-    for (cc[2] = a_valid.smallEnd(2); cc[2] <= a_valid.bigEnd(2); ++cc[2]) {
-        for (cc[0] = a_valid.smallEnd(0); cc[0] <= a_valid.bigEnd(0); ++cc[0]) {
-            cc[1] = 0;
-            const Real val = a_flatSrcFAB(cc,0);
-            const Real bgval = a_flatBackGroundFAB(cc,0);
-
-            const Real jcenter = 0.5 * Real(a_domBox.bigEnd(1) + a_domBox.smallEnd(0));
-            const Real jsize = Real(a_domBox.size(1));
-            Real jfrac; // Range = -0.5 to 0.5
-            Real amp;   // Range = 0.0 to 1.0
-
-            for (cc[1] = a_valid.smallEnd(1); cc[1] <= a_valid.bigEnd(1); ++cc[1]) {
-                jfrac = (Real(cc[1]) - jcenter) / jsize;
-                amp = 0.5*(tanh(m*(jfrac+0.5*sigma))-tanh(m*(jfrac-0.5*sigma)));
-                a_destFAB(cc,a_destComp) = amp*val + (1.0-amp)*bgval;
-            }
-        }
-    }
-}
+//             for (cc[1] = a_valid.smallEnd(1); cc[1] <= a_valid.bigEnd(1); ++cc[1]) {
+//                 jfrac = (Real(cc[1]) - jcenter) / jsize;
+//                 amp = 0.5*(tanh(m*(jfrac+0.5*sigma))-tanh(m*(jfrac-0.5*sigma)));
+//                 a_destFAB(cc,a_destComp) = amp*val + (1.0-amp)*bgval;
+//             }
+//         }
+//     }
+// }
 
 
 
@@ -333,7 +340,8 @@ DJLBCUtil::DJLBCUtil ()
         const ProblemContext* ctx = ProblemContext::getInstance();
 
         s_L = ctx->domainLength;
-        // s_d, s_z0
+
+        // TODO: Read all static parameters from input file.
 
         paramsRead = true;
     }
@@ -366,135 +374,13 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
                           const LevelGeometry& a_levGeo,
                           const DataIndex&     a_di) const
 {
-#if CH_SPACEDIM == 2
-    // Sanity checks
-    CH_assert(SpaceDim == 2); // Streamfunction method is different for other dims
-    CH_assert(a_velFAB.nComp() == SpaceDim);
-    CH_assert(0 <= a_velComp);
-    CH_assert(a_velComp < SpaceDim);
-    CH_assert(a_velFAB.box().type() == IntVect::Zero);
-
-    // Gather domain data
-    const ProblemDomain& domain = a_levGeo.getDomain();
-    const Box domBox = domain.domainBox();
-    const Box valid = a_levGeo.getBoxes()[a_di] & a_velFAB.box();
-    const RealVect physDx = a_levGeo.getDx();
-    const IntVect& Nx = domBox.size();
-
-    // Open input data file
-    char infileName[100];
-    sprintf(infileName, "DJLIC_%dx%d.bin", Nx[0], Nx[SpaceDim-1]);
-    std::ifstream infile;
-    infile.open(infileName, ios::in | ios::binary);
-
-    // Gather data from file
-    if (infile.is_open()) {
-        double nmax = 0.0;
-        double c = 0.0;
-        Vector<double> x(Nx[0]+1, 0.0);
-        Vector<double> z(Nx[SpaceDim-1]+1, 0.0);
-        FArrayBox etaFAB(surroundingNodes(domBox), 1);
-
-        // Move to beginning of file.
-        infile.seekg(0, ios::beg);
-
-        // Read N^2 scaling. (This is not used)
-        infile.seekg(4, ios::cur);
-        infile.read((char*)&nmax, sizeof(double));
-        infile.seekg(4, ios::cur);
-
-        // Read c (long-wave speed)
-        infile.seekg(4, ios::cur);
-        infile.read((char*)&c, sizeof(double));
-        infile.seekg(4, ios::cur);
-
-        // Read x coordinates
-        infile.seekg(4, ios::cur);
-        infile.read((char*)&x[0], sizeof(double)*x.size());
-        infile.seekg(4, ios::cur);
-
-        // Read z coordinates
-        infile.seekg(4, ios::cur);
-        infile.read((char*)&z[0], sizeof(double)*z.size());
-        infile.seekg(4, ios::cur);
-
-        // Read eta
-        const IntVect etaShift = etaFAB.box().smallEnd();
-        etaFAB.shift(-etaShift);
-        CH_assert(etaFAB.box().smallEnd() == IntVect::Zero);
-        for (int k = 0; k < Nx[SpaceDim-1]+1; ++k) {
-            Vector<double> dataVec(Nx[0]+1, 0.0);
-
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&dataVec[0], sizeof(double)*(Nx[0]+1));
-            infile.seekg(4, ios::cur);
-
-            for (int i = 0; i < Nx[0]+1; ++i) {
-                IntVect nc(D_DECL(i,k,0));
-                etaFAB(nc) = dataVec[i];
-            }
-        }
-        etaFAB.shift(etaShift);
-
-        // We are done reading data from file.
-        infile.close();
-
-        // Construct the velocity field.
-        if (a_velComp == 0) {
-            // u = c * eta_z
-            BoxIterator bit(valid);
-            for (bit.reset(); bit.ok(); ++bit) {
-                const IntVect& cc = bit();
-
-                const IntVect nclb = cc;
-                const IntVect ncrb = cc + BASISV(SpaceDim-1);
-
-                const IntVect nclt = nclb + BASISV(0);
-                const IntVect ncrt = ncrb + BASISV(0);
-
-                Real detat = (etaFAB(ncrt) - etaFAB(nclt)) / physDx[SpaceDim-1];
-                Real detab = (etaFAB(ncrb) - etaFAB(nclb)) / physDx[SpaceDim-1];
-                a_velFAB(cc,a_velComp) = 0.5 * (detat + detab);
-            }
-        } else {
-            // w = -c * eta_x
-            BoxIterator bit(valid);
-            for (bit.reset(); bit.ok(); ++bit) {
-                const IntVect& cc = bit();
-
-                const IntVect nclb = cc;
-                const IntVect ncrb = cc + BASISV(0);
-
-                const IntVect nclt = nclb + BASISV(SpaceDim-1);
-                const IntVect ncrt = ncrb + BASISV(SpaceDim-1);
-
-                Real detat = (etaFAB(ncrt) - etaFAB(nclt)) / physDx[0];
-                Real detab = (etaFAB(ncrb) - etaFAB(nclb)) / physDx[0];
-                a_velFAB(cc,a_velComp) = -0.5 * (detat + detab);
-            }
-        }
-
-    } else {
-        std::ostringstream errmsg;
-        errmsg << "Could not open " << infileName;
-        MayDay::Error(errmsg.str().c_str());
-    }
-
-#else //CH_SPACEDIM == 3
-
+// #if CH_SPACEDIM == 2
     // // Sanity checks
-    // CH_assert(SpaceDim == 3);
+    // CH_assert(SpaceDim == 2); // Streamfunction method is different for other dims
     // CH_assert(a_velFAB.nComp() == SpaceDim);
     // CH_assert(0 <= a_velComp);
     // CH_assert(a_velComp < SpaceDim);
     // CH_assert(a_velFAB.box().type() == IntVect::Zero);
-
-    // // y-vel is just 0
-    // if (a_velComp == 1) {
-    //     a_velFAB.setVal(0.0, a_velComp);
-    //     return;
-    // }
-
 
     // // Gather domain data
     // const ProblemDomain& domain = a_levGeo.getDomain();
@@ -503,43 +389,44 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
     // const RealVect physDx = a_levGeo.getDx();
     // const IntVect& Nx = domBox.size();
 
-    // const Box flatDomBox = flattenBox(domBox, 1);
-    // const Box flatValid = flattenBox(valid, 1);
-
-    // // Open the source data file
+    // // Open input data file
     // char infileName[100];
     // sprintf(infileName, "DJLIC_%dx%d.bin", Nx[0], Nx[SpaceDim-1]);
-    // pout() << "infileName = " << infileName << endl;
     // std::ifstream infile;
     // infile.open(infileName, ios::in | ios::binary);
 
+    // // Gather data from file
     // if (infile.is_open()) {
     //     double nmax = 0.0;
     //     double c = 0.0;
     //     Vector<double> x(Nx[0]+1, 0.0);
     //     Vector<double> z(Nx[SpaceDim-1]+1, 0.0);
-    //     FArrayBox etaFAB(surroundingNodes(flatDomBox), 1);
+    //     FArrayBox etaFAB(surroundingNodes(domBox), 1);
 
+    //     // Move to beginning of file.
     //     infile.seekg(0, ios::beg);
 
+    //     // Read N^2 scaling. (This is not used)
     //     infile.seekg(4, ios::cur);
     //     infile.read((char*)&nmax, sizeof(double));
-    //     pout() << "nmax = " << nmax << endl;
     //     infile.seekg(4, ios::cur);
 
+    //     // Read c (long-wave speed)
     //     infile.seekg(4, ios::cur);
     //     infile.read((char*)&c, sizeof(double));
-    //     pout() << "c = " << c << endl;
     //     infile.seekg(4, ios::cur);
 
+    //     // Read x coordinates
     //     infile.seekg(4, ios::cur);
     //     infile.read((char*)&x[0], sizeof(double)*x.size());
     //     infile.seekg(4, ios::cur);
 
+    //     // Read z coordinates
     //     infile.seekg(4, ios::cur);
     //     infile.read((char*)&z[0], sizeof(double)*z.size());
     //     infile.seekg(4, ios::cur);
 
+    //     // Read eta
     //     const IntVect etaShift = etaFAB.box().smallEnd();
     //     etaFAB.shift(-etaShift);
     //     CH_assert(etaFAB.box().smallEnd() == IntVect::Zero);
@@ -551,20 +438,19 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
     //         infile.seekg(4, ios::cur);
 
     //         for (int i = 0; i < Nx[0]+1; ++i) {
-    //             IntVect nc(i,0,k);
+    //             IntVect nc(D_DECL(i,k,0));
     //             etaFAB(nc) = dataVec[i];
     //         }
     //     }
     //     etaFAB.shift(etaShift);
 
+    //     // We are done reading data from file.
     //     infile.close();
 
-    //     // Compute velocity in 2D slice.
-    //     FArrayBox flatVelFAB(flatValid, 1);
-
+    //     // Construct the velocity field.
     //     if (a_velComp == 0) {
     //         // u = c * eta_z
-    //         BoxIterator bit(flatValid);
+    //         BoxIterator bit(valid);
     //         for (bit.reset(); bit.ok(); ++bit) {
     //             const IntVect& cc = bit();
 
@@ -576,15 +462,11 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
 
     //             Real detat = (etaFAB(ncrt) - etaFAB(nclt)) / physDx[SpaceDim-1];
     //             Real detab = (etaFAB(ncrb) - etaFAB(nclb)) / physDx[SpaceDim-1];
-    //             flatVelFAB(cc,0) = 0.5 * (detat + detab);
+    //             a_velFAB(cc,a_velComp) = 0.5 * (detat + detab);
     //         }
-
-    //     } else if (a_velComp == 1) {
-    //         MayDay::Error("Handle this separately.");
-
     //     } else {
     //         // w = -c * eta_x
-    //         BoxIterator bit(flatValid);
+    //         BoxIterator bit(valid);
     //         for (bit.reset(); bit.ok(); ++bit) {
     //             const IntVect& cc = bit();
 
@@ -596,12 +478,9 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
 
     //             Real detat = (etaFAB(ncrt) - etaFAB(nclt)) / physDx[0];
     //             Real detab = (etaFAB(ncrb) - etaFAB(nclb)) / physDx[0];
-    //             flatVelFAB(cc,0) = -0.5 * (detat + detab);
+    //             a_velFAB(cc,a_velComp) = -0.5 * (detat + detab);
     //         }
     //     }
-
-    //     // Extrude velocity to spanwise dir.
-    //     envelopeExtrusionVel(a_velFAB, a_velComp, valid, domBox, flatVelFAB);
 
     // } else {
     //     std::ostringstream errmsg;
@@ -609,10 +488,7 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
     //     MayDay::Error(errmsg.str().c_str());
     // }
 
-
-
     // Sanity checks
-    CH_assert(SpaceDim == 3);
     CH_assert(a_velFAB.nComp() == SpaceDim);
     CH_assert(0 <= a_velComp);
     CH_assert(a_velComp < SpaceDim);
@@ -625,9 +501,12 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
     const IntVect& Nx = domBox.size();
     const RealVect L = a_levGeo.getDomainLength();
 
+    const Real sinA = sin(s_rotAngle);
+    const Real cosA = cos(s_rotAngle);
+
     // Read eta from file.
-    Vector<Vector<Real> > eta(Nx[2]+1, Vector<Real>(Nx[0]+1, 0.0));
-    readDJLICFile(eta, Nx[0], Nx[2]);
+    Vector<Vector<Real> > eta(Nx[SpaceDim-1]+1, Vector<Real>(Nx[0]+1, 0.0));
+    readDJLICFile(eta, Nx[0], Nx[SpaceDim-1]);
 
     // Compute locations of cell centers.
     Vector<Real> x(Nx[0]);
@@ -640,43 +519,31 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
 
     // Loop over horizontal slices
     IntVect cc = valid.smallEnd();
-    int k = cc[2] - domBox.smallEnd(2);
-    for (; cc[2] <= valid.bigEnd(2); ++cc[2], ++k) {
+    int k = cc[SpaceDim-1] - domBox.smallEnd(SpaceDim-1);
+    for (; cc[SpaceDim-1] <= valid.bigEnd(SpaceDim-1); ++cc[SpaceDim-1], ++k) {
 
         // Construct CC DJL velocity
-        const Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+        const Real thisZ = (Real(cc[SpaceDim-1]) + 0.5) * physDx[SpaceDim-1];
         Vector<Real> velDJL;
-        if (a_velComp == 2) {
+        if (a_velComp == SpaceDim-1) {
             fill_wDJL(velDJL, eta[k+1], eta[k], physDx[0]);
         } else {
-            fill_uDJL(velDJL, eta[k+1], eta[k], physDx[2]);
+            fill_uDJL(velDJL, eta[k+1], eta[k], physDx[SpaceDim-1]);
         }
 
+#if CH_SPACEDIM == 2
+        // Loop over this horizontal slice and fill FAB.
+        // No rotations needed.
+        cc[0] = valid.smallEnd(0);
+        int i = cc[0] - domBox.smallEnd(0);
+        for (; cc[0] <= valid.bigEnd(0); ++cc[0], ++i) {
+            a_velFAB(cc, a_velComp) = velDJL[i];
+        }
+
+#else // CH_SPACEDIM == 3
         // Construct splines of DJL velocity
         CubicSpline velDJLSpline;
         velDJLSpline.solve(velDJL, x);
-
-
-
-        // // u = c * eta_z
-        // Vector<Real> uDJL(Nx[0], 0.0);
-        // for (int i = 0; i < Nx[0]; ++i) {
-        //     Real detar = eta[k+1][i+1] - eta[k][i+1];
-        //     Real detal = eta[k+1][i  ] - eta[k][i  ];
-        //     uDJL[i] = 0.5 * (detar + detal) / physDx[2];
-        // }
-        // // w = -c * eta_x
-        // Vector<Real> wDJL(Nx[0], 0.0);
-        // for (int i = 0; i < Nx[0]; ++i) {
-        //     Real detat = eta[k+1][i+1] - eta[k+1][i];
-        //     Real detab = eta[k  ][i+1] - eta[k  ][i];
-        //     wDJL[i] = -0.5 * (detat + detab) / physDx[0];
-        // }
-
-        // // Construct splines of DJL velocity
-        // CubicSpline uDJLSpline, wDJLSpline;
-        // uDJLSpline.solve(uDJL, x);
-        // wDJLSpline.solve(wDJL, x);
 
         // Loop over this horizontal slice
         cc[0] = valid.smallEnd(0);
@@ -687,38 +554,9 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
             int j = cc[1] - domBox.smallEnd(1);
             for (; cc[1] <= valid.bigEnd(1); ++cc[1], ++j) {
 
-                // // Compute this cell's location.
-                // Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
-                // Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
-
-                // // Compute the location of the "source" DJL solution
-                // // and our distance away from the center of extrusion.
-                // Real srcX = thisY*sinA + thisX*cosA;
-                // Real dist = thisY*cosA - thisX*sinA;
-
-                // // Interpolate the DJL solution at the source location.
-                // Real srcU = ((minX <= srcX && srcX <= maxX)? uDJLSpline.interp(srcX): 0.0);
-                // Real srcW = ((minX <= srcX && srcX <= maxX)? wDJLSpline.interp(srcX): 0.0);
-
-                // // Now, rotate the source solution into position
-                // Real rotVel;
-                // if (a_velComp == 0) {
-                //     rotVel = srcU*cosA;
-                // } else if (a_velComp == 1) {
-                //     rotVel = -srcU*sinA;
-                // } else {
-                //     rotVel = srcW;
-                // }
-
-                // // Compute envelope at this distance from the center of extrusion.
-                // Real envelope = 0.5*(tanh(m*(dist+0.5*sigma))-tanh(m*(dist-0.5*sigma)));
-
-                // // Set 3D field.
-                // a_velFAB(cc, a_velComp) = envelope * rotVel;
-
                 // Compute this cell's location.
-                Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
-                Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
+                Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - s_offsetx;
+                Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - s_offsety;
 
                 // Compute the location of the "source" DJL solution
                 // and our distance away from the center of extrusion.
@@ -736,16 +574,105 @@ void DJLBCUtil::setVelIC (FArrayBox&           a_velFAB,
                 }
 
                 // Compute envelope at this distance from the center of extrusion.
-                Real env = envelope(yprime);
+                Real env = extrusionEnvelope(yprime);
 
                 // Set 3D field.
                 a_velFAB(cc, a_velComp) = env * srcVel;
 
             } // end loop over y (cc[1] and j)
         } // end loop over x (cc[0] and i)
+#endif // CH_SPACEDIM == 2 or 3
     } // end loop over z (cc[2] and k)
 
-#endif
+// #else //CH_SPACEDIM == 3
+
+//     // Sanity checks
+//     CH_assert(SpaceDim == 3);
+//     CH_assert(a_velFAB.nComp() == SpaceDim);
+//     CH_assert(0 <= a_velComp);
+//     CH_assert(a_velComp < SpaceDim);
+//     CH_assert(a_velFAB.box().type() == IntVect::Zero);
+
+//     // Gather domain data
+//     const Box domBox = a_levGeo.getDomain().domainBox();
+//     const Box valid = a_levGeo.getBoxes()[a_di] & a_velFAB.box();
+//     const RealVect physDx = a_levGeo.getDx();
+//     const IntVect& Nx = domBox.size();
+//     const RealVect L = a_levGeo.getDomainLength();
+
+//     const Real sinA = sin(s_rotAngle);
+//     const Real cosA = cos(s_rotAngle);
+
+//     // Read eta from file.
+//     Vector<Vector<Real> > eta(Nx[2]+1, Vector<Real>(Nx[0]+1, 0.0));
+//     readDJLICFile(eta, Nx[0], Nx[2]);
+
+//     // Compute locations of cell centers.
+//     Vector<Real> x(Nx[0]);
+//     for (int i = 0; i < Nx[0]; ++i) {
+//         x[i] = (Real(domBox.smallEnd(0) + i) + 0.5) * physDx[0];
+//     }
+//     const Real minX = x[0];
+//     const Real maxX = x[Nx[0]-1];
+
+
+//     // Loop over horizontal slices
+//     IntVect cc = valid.smallEnd();
+//     int k = cc[2] - domBox.smallEnd(2);
+//     for (; cc[2] <= valid.bigEnd(2); ++cc[2], ++k) {
+
+//         // Construct CC DJL velocity
+//         const Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+//         Vector<Real> velDJL;
+//         if (a_velComp == 2) {
+//             fill_wDJL(velDJL, eta[k+1], eta[k], physDx[0]);
+//         } else {
+//             fill_uDJL(velDJL, eta[k+1], eta[k], physDx[2]);
+//         }
+
+//         // Construct splines of DJL velocity
+//         CubicSpline velDJLSpline;
+//         velDJLSpline.solve(velDJL, x);
+
+//         // Loop over this horizontal slice
+//         cc[0] = valid.smallEnd(0);
+//         int i = cc[0] - domBox.smallEnd(0);
+//         for (; cc[0] <= valid.bigEnd(0); ++cc[0], ++i) {
+
+//             cc[1] = valid.smallEnd(1);
+//             int j = cc[1] - domBox.smallEnd(1);
+//             for (; cc[1] <= valid.bigEnd(1); ++cc[1], ++j) {
+
+//                 // Compute this cell's location.
+//                 Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - s_offsetx;
+//                 Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - s_offsety;
+
+//                 // Compute the location of the "source" DJL solution
+//                 // and our distance away from the center of extrusion.
+//                 Real xprime =  thisX*cosA + thisY*sinA;
+//                 Real yprime = -thisX*sinA + thisY*cosA;
+
+//                 // Interpolate the DJL solution at the source location.
+//                 Real srcVel = ((minX <= xprime && xprime <= maxX)? velDJLSpline.interp(xprime): 0.0);
+
+//                 // Now, rotate the source solution into position
+//                 if (a_velComp == 0) {
+//                     srcVel *= cosA;
+//                 } else if (a_velComp == 1) {
+//                     srcVel *= sinA;
+//                 }
+
+//                 // Compute envelope at this distance from the center of extrusion.
+//                 Real env = extrusionEnvelope(yprime);
+
+//                 // Set 3D field.
+//                 a_velFAB(cc, a_velComp) = env * srcVel;
+
+//             } // end loop over y (cc[1] and j)
+//         } // end loop over x (cc[0] and i)
+//     } // end loop over z (cc[2] and k)
+
+// #endif
 }
 
 
@@ -757,225 +684,7 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
                              const LevelGeometry& a_levGeo,
                              const DataIndex&     a_di) const
 {
-#if CH_SPACEDIM == 2
-    CH_assert(SpaceDim == 2); // Streamfunction method is different for other dims
-    CH_assert(a_scalarFAB.nComp() == 1);
-
-    if (a_scalarComp == 0) {
-        // Gather domain data
-        const ProblemDomain& domain = a_levGeo.getDomain();
-        const Box domBox = domain.domainBox();
-        const Box valid = a_levGeo.getBoxes()[a_di] & a_scalarFAB.box();
-        const Real dz = a_levGeo.getDx()[SpaceDim-1];
-        const IntVect& Nx = domBox.size();
-
-        char infileName[100];
-        sprintf(infileName, "DJLIC_%dx%d.bin", Nx[0], Nx[SpaceDim-1]);
-        pout() << "infileName = " << infileName << endl;
-        std::ifstream infile;
-        infile.open(infileName, ios::in | ios::binary);
-
-        if (infile.is_open()) {
-            double nmax = 0.0;
-            double c = 0.0;
-            Vector<double> x(Nx[0]+1, 0.0);
-            Vector<double> z(Nx[SpaceDim-1]+1, 0.0);
-            FArrayBox etaFAB(surroundingNodes(domBox), 1);
-
-            // Move to beginning of file.
-            infile.seekg(0, ios::beg);
-
-            // Read N^2 scaling. (This is not used)
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&nmax, sizeof(double));
-            infile.seekg(4, ios::cur);
-
-            // Read c (long-wave speed)
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&c, sizeof(double));
-            infile.seekg(4, ios::cur);
-
-            // Read x coordinates
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&x[0], sizeof(double)*x.size());
-            infile.seekg(4, ios::cur);
-
-            // Read z coordinates
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&z[0], sizeof(double)*z.size());
-            infile.seekg(4, ios::cur);
-
-            // Read eta
-            const IntVect etaShift = etaFAB.box().smallEnd();
-            etaFAB.shift(-etaShift);
-            CH_assert(etaFAB.box().smallEnd() == IntVect::Zero);
-            for (int k = 0; k < Nx[SpaceDim-1]+1; ++k) {
-                Vector<double> dataVec(Nx[0]+1, 0.0);
-
-                infile.seekg(4, ios::cur);
-                infile.read((char*)&dataVec[0], sizeof(double)*(Nx[0]+1));
-                infile.seekg(4, ios::cur);
-
-                for (int i = 0; i < Nx[0]+1; ++i) {
-                    IntVect nc(D_DECL(i,k,0));
-                    etaFAB(nc) = dataVec[i];
-                }
-            }
-            etaFAB.shift(etaShift);
-
-            // We are done reading data from file.
-            infile.close();
-
-            // Convert etaFAB centering to match a_scalarFAB.
-            CH_assert(a_scalarFAB.box().type() == IntVect::Zero);
-            FArrayBox ccEtaFAB(valid, 1);
-            FORT_CONVERTFAB(
-                CHF_FRA1(ccEtaFAB,0),
-                CHF_BOX(valid),
-                CHF_CONST_INTVECT(IntVect::Zero),
-                CHF_CONST_FRA1(etaFAB,0),
-                CHF_CONST_INTVECT(IntVect::Unit));
-
-            // Construct total buoyancy.
-            BoxIterator bit(valid);
-            for (bit.reset(); bit.ok(); ++bit) {
-                const IntVect& cc = bit();
-
-                Real z = (Real(cc[SpaceDim-1]) + 0.5) * dz - ccEtaFAB(cc,0)/c;
-                Real rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
-                Real rho        = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
-                Real rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
-
-                a_scalarFAB(cc,0) = (rho - rho_top) / (rho_bottom - rho_top);
-            }
-        } else {
-            std::ostringstream errmsg;
-            errmsg << "Could not open " << infileName;
-            MayDay::Error(errmsg.str().c_str());
-        }
-
-    } else {
-        MayDay::Error("scalar IC not defined for comp > 0");
-    }
-
-#else //CH_SPACEDIM == 3
-
-#if 0
-    CH_assert(SpaceDim == 3);
-    CH_assert(a_scalarFAB.nComp() == 1);
-
-    if (a_scalarComp == 0) {
-        // Gather domain data
-        const ProblemDomain& domain = a_levGeo.getDomain();
-        const Box domBox = domain.domainBox();
-        const Box valid = a_levGeo.getBoxes()[a_di] & a_scalarFAB.box();
-        const Real dz = a_levGeo.getDx()[SpaceDim-1];
-        const IntVect& Nx = domBox.size();
-
-        const Box flatDomBox = flattenBox(domBox, 1);
-        const Box flatValid = flattenBox(valid, 1);
-
-        Box flatDomNodeBox = flatDomBox;
-        flatDomNodeBox.surroundingNodes(0);
-        flatDomNodeBox.surroundingNodes(SpaceDim-1);
-
-        char infileName[100];
-        sprintf(infileName, "DJLIC_%dx%d.bin", Nx[0], Nx[SpaceDim-1]);
-        pout() << "infileName = " << infileName << endl;
-        std::ifstream infile;
-        infile.open(infileName, ios::in | ios::binary);
-
-        if (infile.is_open()) {
-            double nmax = 0.0;
-            double c = 0.0;
-            Vector<double> x(Nx[0]+1, 0.0);
-            Vector<double> z(Nx[SpaceDim-1]+1, 0.0);
-            FArrayBox etaFAB(flatDomNodeBox, 1);
-
-            infile.seekg(0, ios::beg);
-
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&nmax, sizeof(double));
-            pout() << "nmax = " << nmax << endl;
-            infile.seekg(4, ios::cur);
-
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&c, sizeof(double));
-            pout() << "c = " << c << endl;
-            infile.seekg(4, ios::cur);
-
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&x[0], sizeof(double)*x.size());
-            infile.seekg(4, ios::cur);
-
-            infile.seekg(4, ios::cur);
-            infile.read((char*)&z[0], sizeof(double)*z.size());
-            infile.seekg(4, ios::cur);
-
-            const IntVect etaShift = etaFAB.box().smallEnd();
-            etaFAB.shift(-etaShift);
-            CH_assert(etaFAB.box().smallEnd() == IntVect::Zero);
-            for (int k = 0; k < Nx[SpaceDim-1]+1; ++k) {
-                Vector<double> dataVec(Nx[0]+1, 0.0);
-
-                infile.seekg(4, ios::cur);
-                infile.read((char*)&dataVec[0], sizeof(double)*(Nx[0]+1));
-                infile.seekg(4, ios::cur);
-
-                for (int i = 0; i < Nx[0]+1; ++i) {
-                    IntVect nc(i,0,k);
-                    etaFAB(nc) = dataVec[i];
-                }
-            }
-            etaFAB.shift(etaShift);
-
-            // We are done reading data from file.
-            infile.close();
-
-
-            // Convert etaFAB centering.
-            FArrayBox ccFlatEtaFAB(flatValid, 1);
-            FORT_CONVERTFAB(
-                CHF_FRA1(ccFlatEtaFAB,0),
-                CHF_BOX(flatValid),
-                CHF_CONST_INTVECT(IntVect::Zero),
-                CHF_CONST_FRA1(etaFAB,0),
-                CHF_CONST_INTVECT(IntVect(1,0,1)));
-
-            // Set total b.
-            FArrayBox flatScalarFAB(flatValid, 1);
-            FArrayBox flatBackGroundFAB(flatValid, 1);
-            BoxIterator bit(flatValid);
-
-            for (bit.reset(); bit.ok(); ++bit) {
-                const IntVect& cc = bit();
-
-                Real z = (Real(cc[SpaceDim-1]) + 0.5) * dz;
-                Real rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
-                Real rho        = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
-                Real rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
-                flatBackGroundFAB(cc,0) = (rho - rho_top) / (rho_bottom - rho_top);
-
-                z -= ccFlatEtaFAB(cc,0)/c;
-                rho = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
-                flatScalarFAB(cc,0) = (rho - rho_top) / (rho_bottom - rho_top);
-            }
-
-            // Extrude scalar in spanwise dir.
-            envelopeExtrusionScal(a_scalarFAB, a_scalarComp, valid, domBox, flatScalarFAB, flatBackGroundFAB);
-
-        } else {
-            std::ostringstream errmsg;
-            errmsg << "Could not open " << infileName;
-            MayDay::Error(errmsg.str().c_str());
-        }
-    } else {
-        MayDay::Error("scalar IC not defined for comp > 0");
-    }
-
-#else
     // Sanity checks
-    CH_assert(SpaceDim == 3);
     CH_assert(a_scalarFAB.nComp() == 1);
     CH_assert(a_scalarComp == 0);
     CH_assert(a_scalarFAB.box().type() == IntVect::Zero);
@@ -987,9 +696,12 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
     const IntVect& Nx = domBox.size();
     const RealVect L = a_levGeo.getDomainLength();
 
+    const Real sinA = sin(s_rotAngle);
+    const Real cosA = cos(s_rotAngle);
+
     // Read eta from file.
-    Vector<Vector<Real> > eta(Nx[2]+1, Vector<Real>(Nx[0]+1, 0.0));
-    const Real c = readDJLICFile(eta, Nx[0], Nx[2]);
+    Vector<Vector<Real> > eta(Nx[SpaceDim-1]+1, Vector<Real>(Nx[0]+1, 0.0));
+    const Real c = readDJLICFile(eta, Nx[0], Nx[SpaceDim-1]);
 
     // Compute locations of cell centers.
     Vector<Real> x(Nx[0]);
@@ -1002,31 +714,26 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
 
     // Loop over horizontal slices
     IntVect cc = valid.smallEnd();
-    int k = cc[2] - domBox.smallEnd(2);
-    for (; cc[2] <= valid.bigEnd(2); ++cc[2], ++k) {
-
-        // // Compute the background scalar for this slice.
-        // Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
-        // Real rho_bottom = 0.5 * (1.0 - tanh((0.0   - s_z0) / s_d));
-        // Real rho        = 0.5 * (1.0 - tanh((thisZ - s_z0) / s_d));
-        // Real rho_top    = 0.5 * (1.0 - tanh((1.0   - s_z0) / s_d));
-        // Real bgScalar   = (rho - rho_top) / (rho_bottom - rho_top);
-
-        // // Compute the DJL scalar for this slice.
-        // Vector<Real> bDJL(Nx[0], 0.0);
-        // for (int i = 0; i < Nx[0]; ++i) {
-        //     Real ccEta = 0.25 * (eta[k][i] + eta[k+1][i] + eta[k][i+1] + eta[k+1][i+1]);
-        //     Real z = thisZ - ccEta / c;
-        //     rho = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
-        //     bDJL[i] = (rho - rho_top) / (rho_bottom - rho_top);
-        // }
+    int k = cc[SpaceDim-1] - domBox.smallEnd(SpaceDim-1);
+    for (; cc[SpaceDim-1] <= valid.bigEnd(SpaceDim-1); ++cc[SpaceDim-1], ++k) {
 
         // Construct CC DJL buoyancy
-        const Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+        const Real thisZ = (Real(cc[SpaceDim-1]) + 0.5) * physDx[SpaceDim-1];
         Vector<Real> ccEta, bDJL;
         convertSliceNC2CC(ccEta, eta[k+1], eta[k]);
         const Real bgScalar = fill_bDJL(bDJL, ccEta, c, thisZ);
 
+
+#if CH_SPACEDIM == 2
+        // Loop over this horizontal slice and fill FAB.
+        // No rotations needed.
+        cc[0] = valid.smallEnd(0);
+        int i = cc[0] - domBox.smallEnd(0);
+        for (; cc[0] <= valid.bigEnd(0); ++cc[0], ++i) {
+            a_scalarFAB(cc,0) = bDJL[i];
+        }
+
+#else // CH_SPACEDIM == 3
         // Construct splines of DJL buoyancy
         CubicSpline bDJLSpline;
         bDJLSpline.solve(bDJL, x);
@@ -1038,27 +745,9 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
             cc[1] = valid.smallEnd(1);
             for (; cc[1] <= valid.bigEnd(1); ++cc[1]) {
 
-                // // Compute this cell's location.
-                // Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
-                // Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
-
-                // // Compute the location of the "source" DJL solution
-                // // and our distance away from the center of extrusion.
-                // Real srcX = thisY*sinA + thisX*cosA;
-                // Real dist = thisY*cosA - thisX*sinA;
-
-                // // Interpolate the DJL solution at the source location.
-                // Real srcB = ((minX <= srcX && srcX <= maxX)? bDJLSpline.interp(srcX): bgScalar);
-
-                // // Compute envelope at this distance from the center of extrusion.
-                // Real envelope = 0.5*(tanh(m*(dist+0.5*sigma))-tanh(m*(dist-0.5*sigma)));
-
-                // // Set 3D field.
-                // a_scalarFAB(cc,0) = envelope*srcB + (1.0-envelope)*bgScalar;
-
                 // Compute this cell's location.
-                Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - offsetx;
-                Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - offsety;
+                Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - s_offsetx;
+                Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - s_offsety;
 
                 // Compute the location of the "source" DJL solution
                 // and our distance away from the center of extrusion.
@@ -1069,18 +758,193 @@ void DJLBCUtil::setScalarIC (FArrayBox&           a_scalarFAB,
                 Real srcB = ((minX <= xprime && xprime <= maxX)? bDJLSpline.interp(xprime): bgScalar);
 
                 // Compute envelope at this distance from the center of extrusion.
-                Real env = envelope(yprime);
+                Real env = extrusionEnvelope(yprime);
 
                 // Set 3D field.
                 a_scalarFAB(cc,0) = env*srcB + (1.0-env)*bgScalar;
 
             } // end loop over y (cc[1])
         } // end loop over x (cc[0])
+#endif // CH_SPACEDIM == 2 or 3
     } // end loop over z (cc[2] and k)
 
-#endif // old vs new code
 
-#endif // 2 or 3 dims
+// #if CH_SPACEDIM == 2
+//     CH_assert(SpaceDim == 2); // Streamfunction method is different for other dims
+//     CH_assert(a_scalarFAB.nComp() == 1);
+
+//     if (a_scalarComp == 0) {
+//         // Gather domain data
+//         const ProblemDomain& domain = a_levGeo.getDomain();
+//         const Box domBox = domain.domainBox();
+//         const Box valid = a_levGeo.getBoxes()[a_di] & a_scalarFAB.box();
+//         const Real dz = a_levGeo.getDx()[SpaceDim-1];
+//         const IntVect& Nx = domBox.size();
+
+//         char infileName[100];
+//         sprintf(infileName, "DJLIC_%dx%d.bin", Nx[0], Nx[SpaceDim-1]);
+//         pout() << "infileName = " << infileName << endl;
+//         std::ifstream infile;
+//         infile.open(infileName, ios::in | ios::binary);
+
+//         if (infile.is_open()) {
+//             double nmax = 0.0;
+//             double c = 0.0;
+//             Vector<double> x(Nx[0]+1, 0.0);
+//             Vector<double> z(Nx[SpaceDim-1]+1, 0.0);
+//             FArrayBox etaFAB(surroundingNodes(domBox), 1);
+
+//             // Move to beginning of file.
+//             infile.seekg(0, ios::beg);
+
+//             // Read N^2 scaling. (This is not used)
+//             infile.seekg(4, ios::cur);
+//             infile.read((char*)&nmax, sizeof(double));
+//             infile.seekg(4, ios::cur);
+
+//             // Read c (long-wave speed)
+//             infile.seekg(4, ios::cur);
+//             infile.read((char*)&c, sizeof(double));
+//             infile.seekg(4, ios::cur);
+
+//             // Read x coordinates
+//             infile.seekg(4, ios::cur);
+//             infile.read((char*)&x[0], sizeof(double)*x.size());
+//             infile.seekg(4, ios::cur);
+
+//             // Read z coordinates
+//             infile.seekg(4, ios::cur);
+//             infile.read((char*)&z[0], sizeof(double)*z.size());
+//             infile.seekg(4, ios::cur);
+
+//             // Read eta
+//             const IntVect etaShift = etaFAB.box().smallEnd();
+//             etaFAB.shift(-etaShift);
+//             CH_assert(etaFAB.box().smallEnd() == IntVect::Zero);
+//             for (int k = 0; k < Nx[SpaceDim-1]+1; ++k) {
+//                 Vector<double> dataVec(Nx[0]+1, 0.0);
+
+//                 infile.seekg(4, ios::cur);
+//                 infile.read((char*)&dataVec[0], sizeof(double)*(Nx[0]+1));
+//                 infile.seekg(4, ios::cur);
+
+//                 for (int i = 0; i < Nx[0]+1; ++i) {
+//                     IntVect nc(D_DECL(i,k,0));
+//                     etaFAB(nc) = dataVec[i];
+//                 }
+//             }
+//             etaFAB.shift(etaShift);
+
+//             // We are done reading data from file.
+//             infile.close();
+
+//             // Convert etaFAB centering to match a_scalarFAB.
+//             CH_assert(a_scalarFAB.box().type() == IntVect::Zero);
+//             FArrayBox ccEtaFAB(valid, 1);
+//             FORT_CONVERTFAB(
+//                 CHF_FRA1(ccEtaFAB,0),
+//                 CHF_BOX(valid),
+//                 CHF_CONST_INTVECT(IntVect::Zero),
+//                 CHF_CONST_FRA1(etaFAB,0),
+//                 CHF_CONST_INTVECT(IntVect::Unit));
+
+//             // Construct total buoyancy.
+//             BoxIterator bit(valid);
+//             for (bit.reset(); bit.ok(); ++bit) {
+//                 const IntVect& cc = bit();
+
+//                 Real z = (Real(cc[SpaceDim-1]) + 0.5) * dz - ccEtaFAB(cc,0)/c;
+//                 Real rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
+//                 Real rho        = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
+//                 Real rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
+
+//                 a_scalarFAB(cc,0) = (rho - rho_top) / (rho_bottom - rho_top);
+//             }
+//         } else {
+//             std::ostringstream errmsg;
+//             errmsg << "Could not open " << infileName;
+//             MayDay::Error(errmsg.str().c_str());
+//         }
+
+//     } else {
+//         MayDay::Error("scalar IC not defined for comp > 0");
+//     }
+
+// #else //CH_SPACEDIM == 3
+
+    // // Sanity checks
+    // CH_assert(a_scalarFAB.nComp() == 1);
+    // CH_assert(a_scalarComp == 0);
+    // CH_assert(a_scalarFAB.box().type() == IntVect::Zero);
+
+    // // Gather domain data
+    // const Box domBox = a_levGeo.getDomain().domainBox();
+    // const Box valid = a_levGeo.getBoxes()[a_di] & a_scalarFAB.box();
+    // const RealVect physDx = a_levGeo.getDx();
+    // const IntVect& Nx = domBox.size();
+    // const RealVect L = a_levGeo.getDomainLength();
+
+    // const Real sinA = sin(s_rotAngle);
+    // const Real cosA = cos(s_rotAngle);
+
+    // // Read eta from file.
+    // Vector<Vector<Real> > eta(Nx[2]+1, Vector<Real>(Nx[0]+1, 0.0));
+    // const Real c = readDJLICFile(eta, Nx[0], Nx[2]);
+
+    // // Compute locations of cell centers.
+    // Vector<Real> x(Nx[0]);
+    // for (int i = 0; i < Nx[0]; ++i) {
+    //     x[i] = (Real(domBox.smallEnd(0) + i) + 0.5) * physDx[0];
+    // }
+    // const Real minX = x[0];
+    // const Real maxX = x[Nx[0]-1];
+
+
+    // // Loop over horizontal slices
+    // IntVect cc = valid.smallEnd();
+    // int k = cc[2] - domBox.smallEnd(2);
+    // for (; cc[2] <= valid.bigEnd(2); ++cc[2], ++k) {
+
+    //     // Construct CC DJL buoyancy
+    //     const Real thisZ = (Real(cc[2]) + 0.5) * physDx[2];
+    //     Vector<Real> ccEta, bDJL;
+    //     convertSliceNC2CC(ccEta, eta[k+1], eta[k]);
+    //     const Real bgScalar = fill_bDJL(bDJL, ccEta, c, thisZ);
+
+    //     // Construct splines of DJL buoyancy
+    //     CubicSpline bDJLSpline;
+    //     bDJLSpline.solve(bDJL, x);
+
+    //     // Loop over this horizontal slice
+    //     cc[0] = valid.smallEnd(0);
+    //     for (; cc[0] <= valid.bigEnd(0); ++cc[0]) {
+
+    //         cc[1] = valid.smallEnd(1);
+    //         for (; cc[1] <= valid.bigEnd(1); ++cc[1]) {
+
+    //             // Compute this cell's location.
+    //             Real thisX = (Real(cc[0]) + 0.5) * physDx[0] - s_offsetx;
+    //             Real thisY = (Real(cc[1]) + 0.5) * physDx[1] - s_offsety;
+
+    //             // Compute the location of the "source" DJL solution
+    //             // and our distance away from the center of extrusion.
+    //             Real xprime =  thisX*cosA + thisY*sinA;
+    //             Real yprime = -thisX*sinA + thisY*cosA;
+
+    //             // Interpolate the DJL solution at the source location.
+    //             Real srcB = ((minX <= xprime && xprime <= maxX)? bDJLSpline.interp(xprime): bgScalar);
+
+    //             // Compute envelope at this distance from the center of extrusion.
+    //             Real env = extrusionEnvelope(yprime);
+
+    //             // Set 3D field.
+    //             a_scalarFAB(cc,0) = env*srcB + (1.0-env)*bgScalar;
+
+    //         } // end loop over y (cc[1])
+    //     } // end loop over x (cc[0])
+    // } // end loop over z (cc[2] and k)
+
+// #endif // 2 or 3 dims
 }
 
 

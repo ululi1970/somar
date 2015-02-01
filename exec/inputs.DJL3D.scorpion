@@ -43,7 +43,8 @@ amr.splitDirs = 1 1 0            # [1 1 1]
 amr.max_grid_size = 0 0 0
 amr.refratio = 2 2 2   # Must set if maxlevel > 0
 # amr.refratio_lev0 = 8 8 1
-amr.refratio_lev0 = 4 4 1
+amr.refratio_lev0 = 2 2 2
+amr.refratio_lev1 = 4 4 1
 
 
 
