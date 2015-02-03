@@ -54,6 +54,8 @@ LevelLepticSolver::LevelLepticSolver ()
 : m_isDefined(false)
 , m_origOpPtr(NULL)             // We don't own this.
 , m_crsePhiPtr(NULL)            // We don't own this either.
+, m_mgSolverPtr(NULL)           // We own this.
+, m_mgBottomSolverPtr(NULL)     // We own this.
 , m_horizOpFactoryPtr(NULL)     // We own this.
 , m_horizSolverPtr(NULL)        // We own this.
 , m_horizBottomSolverPtr(NULL)  // That's ours too.
@@ -103,6 +105,12 @@ void LevelLepticSolver::undefine ()
     m_flatDI.clear();
     m_flatDIComplement.clear();
     // m_vertBCTypes.clear(); // LayoutData has no clear method.
+
+    delete m_mgSolverPtr;
+    m_mgSolverPtr = NULL;
+
+    delete m_mgBottomSolverPtr;
+    m_mgBottomSolverPtr = NULL;
 
     // Horizontal grid stuff
     m_doHorizSolve = true;
@@ -220,7 +228,7 @@ void LevelLepticSolver::define (LinearOp<LevelData<FArrayBox> >* a_operator,
                           0.0,      // alpha
                           1.0,      // beta
                           bcHolder,
-                          0,
+                          0,        // maxDepth
                           0,        // preCondSmoothIters
                           0,        // precondMode
                           ProblemContext::RelaxMode::NORELAX,
@@ -240,6 +248,58 @@ void LevelLepticSolver::define (LinearOp<LevelData<FArrayBox> >* a_operator,
                                                  m_CFRegion,
                                                  bcHolder);
         // pout() << "doHorizSolve = " << m_doHorizSolve << endl;
+
+        { // Define the MultiGrid solver
+            // Create the op factory
+            MappedAMRPoissonOpFactory localPoissonOpFactory;
+            localPoissonOpFactory.define(m_JgupPtr,
+                                         m_JinvPtr,
+                                         m_exCopier,
+                                         m_CFRegion,
+                                         m_dx,
+                                         0.0, // alpha
+                                         1.0, // beta
+                                         bcHolder,
+                                         -1,  // a_maxDepth,
+                                         4,   // a_preCondSmoothIters,
+                                         ProblemContext::PrecondMode::DiagLineRelax,
+                                         ProblemContext::RelaxMode::LINE_GSRB);
+            localPoissonOpFactory.forceDxCrse(m_dxCrse);
+
+
+            // Create the bottom solver
+            m_mgBottomSolverPtr = new BiCGStabSolver<LevelData<FArrayBox> >;
+            CH_assert(m_mgBottomSolverPtr != NULL);
+            m_mgBottomSolverPtr->m_imax = 80;               // TODO: Make these input parameters
+            m_mgBottomSolverPtr->m_verbosity = 0;
+            m_mgBottomSolverPtr->m_numRestarts = 5;
+            m_mgBottomSolverPtr->m_normType = m_normType;
+
+            // Create the MG solver
+            MappedAMRMultiGrid<LevelData<FArrayBox> >* localAMRMGPtr
+                = new MappedAMRMultiGrid<LevelData<FArrayBox> >;
+            CH_assert(localAMRMGPtr != NULL);
+
+            // Set solver parameters
+            localAMRMGPtr->define(m_domain,
+                                  localPoissonOpFactory,
+                                  m_mgBottomSolverPtr,
+                                  1,  // numLevels
+                                  0); // verbosity
+            localAMRMGPtr->m_verbosity = 0;
+            localAMRMGPtr->m_imin = 5;
+            localAMRMGPtr->setSolverParameters(4,        // m_AMRMG_num_smooth_down,
+                                               4,        // m_AMRMG_num_smooth_up,
+                                               4,        // m_AMRMG_num_smooth_bottom,
+                                               1,        // m_AMRMG_numMG,
+                                               20,       // m_AMRMG_imax,
+                                               1.0e-6,   // m_AMRMG_eps,
+                                               1.0e-15,  // m_AMRMG_hang,
+                                               1.0e-30); // m_AMRMG_norm_thresh);
+
+            // Cast the MG solver down.
+            m_mgSolverPtr = localAMRMGPtr;
+        }
     } // end of vertical grid stuff.
 
     // Set up horizontal stuctures, if needed.
@@ -527,12 +587,12 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
     CH_assert(m_dx[SpaceDim-1] * m_domain.size(SpaceDim-1) == H);
 
     const bool useKrylovSolver = true;
-    BiCGStabSolver<LevelData<FArrayBox> > krylovSolver;
-    krylovSolver.define(&*m_opPtr, true);
-    krylovSolver.m_imax = 80;
-    krylovSolver.m_verbosity = 0;
-    krylovSolver.m_numRestarts = 5;
-    krylovSolver.m_normType = m_normType;
+    // BiCGStabSolver<LevelData<FArrayBox> > krylovSolver;
+    // krylovSolver.define(&*m_opPtr, true);
+    // krylovSolver.m_imax = 80;
+    // krylovSolver.m_verbosity = 0;
+    // krylovSolver.m_numRestarts = 5;
+    // krylovSolver.m_normType = m_normType;
     bool krylovSolverWasUsed = false;
 
 
@@ -716,9 +776,19 @@ void LevelLepticSolver::solve (LevelData<FArrayBox>&       a_phi,
             if (redu <= m_hang && useKrylovSolver
                 && order == maxOrder) {
 
-                // Solve with initial guess = 0.
-                m_opPtr->setToZero(vertPhi);
-                krylovSolver.solve(vertPhi, *rhsPtr);
+                // // Solve with initial guess = 0.
+                // m_opPtr->setToZero(vertPhi);
+                // krylovSolver.solve(vertPhi, *rhsPtr);
+
+                Vector<LevelData<FArrayBox>*> phiVec(1, &vertPhi);
+                const Vector<LevelData<FArrayBox>*> rhsVec(1, &(*rhsPtr));
+
+                m_mgSolverPtr->solve(phiVec,
+                                     rhsVec,
+                                     0,      // lMax
+                                     0,      // lBase
+                                     true,   // initialize phi to zero
+                                     true);  // forceHomogeneous
 
                 // Apply the Krylov solver's correction.
                 m_opPtr->residual(*tmpRhsPtr, vertPhi, *rhsPtr, true);

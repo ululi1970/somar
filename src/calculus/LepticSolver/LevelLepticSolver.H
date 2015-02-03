@@ -262,6 +262,8 @@ protected:
     RefCountedPtr<MappedAMRLevelOp<LevelData<FArrayBox> > > m_opPtr;
     RefCountedPtr<LevelData<FluxBox> >                      m_JgupPtr;
     RefCountedPtr<LevelData<FArrayBox> >                    m_JinvPtr;
+    AMREllipticSolver<LevelData<FArrayBox> >*               m_mgSolverPtr;
+    BiCGStabSolver<LevelData<FArrayBox> >*                  m_mgBottomSolverPtr;
 
     // Flat grid stuff
     BoxLayout                                               m_flatGrids;
