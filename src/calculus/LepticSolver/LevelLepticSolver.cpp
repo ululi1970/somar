@@ -260,19 +260,18 @@ void LevelLepticSolver::define (LinearOp<LevelData<FArrayBox> >* a_operator,
                                          0.0, // alpha
                                          1.0, // beta
                                          bcHolder,
-                                         -1,  // a_maxDepth,
-                                         4,   // a_preCondSmoothIters,
-                                         ProblemContext::PrecondMode::DiagLineRelax,
-                                         ProblemContext::RelaxMode::LINE_GSRB);
+                                         m_full_maxDepth,
+                                         m_full_numSmoothPreCond,
+                                         m_full_precondType,
+                                         m_full_relaxType);
             localPoissonOpFactory.forceDxCrse(m_dxCrse);
-
 
             // Create the bottom solver
             m_mgBottomSolverPtr = new BiCGStabSolver<LevelData<FArrayBox> >;
             CH_assert(m_mgBottomSolverPtr != NULL);
-            m_mgBottomSolverPtr->m_imax = 80;               // TODO: Make these input parameters
-            m_mgBottomSolverPtr->m_verbosity = 0;
-            m_mgBottomSolverPtr->m_numRestarts = 5;
+            m_mgBottomSolverPtr->m_imax = m_fullBottom_imax;
+            m_mgBottomSolverPtr->m_verbosity = m_fullBottom_verbosity;
+            m_mgBottomSolverPtr->m_numRestarts = m_fullBottom_numRestarts;
             m_mgBottomSolverPtr->m_normType = m_normType;
 
             // Create the MG solver
@@ -285,17 +284,17 @@ void LevelLepticSolver::define (LinearOp<LevelData<FArrayBox> >* a_operator,
                                   localPoissonOpFactory,
                                   m_mgBottomSolverPtr,
                                   1,  // numLevels
-                                  0); // verbosity
-            localAMRMGPtr->m_verbosity = 0;
-            localAMRMGPtr->m_imin = 5;
-            localAMRMGPtr->setSolverParameters(4,        // m_AMRMG_num_smooth_down,
-                                               4,        // m_AMRMG_num_smooth_up,
-                                               4,        // m_AMRMG_num_smooth_bottom,
-                                               1,        // m_AMRMG_numMG,
-                                               20,       // m_AMRMG_imax,
-                                               1.0e-6,   // m_AMRMG_eps,
-                                               1.0e-15,  // m_AMRMG_hang,
-                                               1.0e-30); // m_AMRMG_norm_thresh);
+                                  m_full_verbosity); // verbosity
+            localAMRMGPtr->m_verbosity = m_full_verbosity;
+            localAMRMGPtr->m_imin = m_full_imin;
+            localAMRMGPtr->setSolverParameters(m_full_numSmoothDown,
+                                               m_full_numSmoothUp,
+                                               m_full_numSmoothBottom,
+                                               m_full_numMG,
+                                               m_full_imax,
+                                               m_full_eps,
+                                               m_full_hang,
+                                               m_full_normThresh);
 
             // Cast the MG solver down.
             m_mgSolverPtr = localAMRMGPtr;
@@ -377,7 +376,7 @@ void LevelLepticSolver::define (LinearOp<LevelData<FArrayBox> >* a_operator,
                                     horizBCHolder,
                                     m_horiz_maxDepth,
                                     m_horiz_numSmoothPreCond,
-                                    0,        // precondMode
+                                    m_horiz_precondType,
                                     m_horiz_relaxType,
                                     true);   // horizontal factory?
         m_horizOpFactoryPtr->forceDxCrse(m_dxCrse);
@@ -464,6 +463,7 @@ void LevelLepticSolver::setCrsePhiPtr (const LevelData<FArrayBox>* a_crsePhiPtr)
 // -----------------------------------------------------------------------------
 void LevelLepticSolver::setDefaultParameters ()
 {
+    // Leptic solver parameters
     setParameters(6,        // a_maxOrder (4)
                   1.0e-15,  // a_eps
                   1.0e-15,  // a_hang
@@ -471,13 +471,15 @@ void LevelLepticSolver::setDefaultParameters ()
                   0,        // a_verbosity (0)
                   1.0e-14); // a_horizRhsTol
 
+    // Horizontal solver parameters
     setHorizMGParameters(5,         // a_imin
                          20,        // a_imax
                          4,         // a_numSmoothDown
                          4,         // a_numSmoothBottom
                          4,         // a_numSmoothUp
-                         2,         // a_numSmoothPreCond
+                         4,         // a_numSmoothPreCond
                          ProblemContext::RelaxMode::LEVEL_GSRB,
+                         ProblemContext::PrecondMode::DiagRelax,
                          -1,        // a_maxDepth
                          1.0e-12,   // a_eps
                          1.0e-15,   // a_hang
@@ -489,6 +491,27 @@ void LevelLepticSolver::setDefaultParameters ()
                              5,         // a_numRestarts
                              1.0e-15,   // a_hang
                              0);        // a_verbosity
+
+    // Full 3D multigrid parameters
+    setFullMGParameters(5,         // a_imin
+                        20,        // a_imax
+                        4,         // a_numSmoothDown
+                        4,         // a_numSmoothBottom
+                        4,         // a_numSmoothUp
+                        4,         // a_numSmoothPreCond
+                        ProblemContext::RelaxMode::LINE_GSRB,
+                        ProblemContext::PrecondMode::DiagLineRelax,
+                        -1,        // a_maxDepth
+                        1.0e-6,    // a_eps
+                        1.0e-15,   // a_hang
+                        1.0e-30,   // a_normThresh
+                        0);        // a_verbosity
+
+    setFullBottomParameters(80,        // a_imax
+                            1.0e-6,    // a_eps
+                            5,         // a_numRestarts
+                            1.0e-15,   // a_hang
+                            0);        // a_verbosity
 }
 
 
@@ -525,6 +548,7 @@ void LevelLepticSolver::setHorizMGParameters (const int  a_imin,
                                               const int  a_numSmoothUp,
                                               const int  a_numSmoothPreCond,
                                               const int  a_relaxType,
+                                              const int  a_precondType,
                                               const int  a_maxDepth,
                                               const Real a_eps,
                                               const Real a_hang,
@@ -538,6 +562,7 @@ void LevelLepticSolver::setHorizMGParameters (const int  a_imin,
     m_horiz_numSmoothBottom = a_numSmoothBottom;
     m_horiz_numSmoothPreCond = a_numSmoothPreCond;
     m_horiz_relaxType = a_relaxType;
+    m_horiz_precondType = a_precondType;
     m_horiz_numMG = 1; // I'm hardcoding this because 1 is all that seems to work.
     m_horiz_maxDepth = a_maxDepth;
     m_horiz_eps = a_eps;
@@ -563,6 +588,56 @@ void LevelLepticSolver::setHorizBottomParameters (const int  a_imax,
     m_horizBottom_verbosity = a_verbosity;
 }
 
+
+// -----------------------------------------------------------------------------
+// Sets the full 3D MG solver's parameters.
+// -----------------------------------------------------------------------------
+void LevelLepticSolver::setFullMGParameters (const int  a_imin,
+                                             const int  a_imax,
+                                             const int  a_numSmoothDown,
+                                             const int  a_numSmoothBottom,
+                                             const int  a_numSmoothUp,
+                                             const int  a_numSmoothPreCond,
+                                             const int  a_relaxType,
+                                             const int  a_precondType,
+                                             const int  a_maxDepth,
+                                             const Real a_eps,
+                                             const Real a_hang,
+                                             const Real a_normThresh,
+                                             const int  a_verbosity)
+{
+    m_full_imin = a_imin;
+    m_full_imax = a_imax;
+    m_full_numSmoothDown = a_numSmoothDown;
+    m_full_numSmoothUp = a_numSmoothUp;
+    m_full_numSmoothBottom = a_numSmoothBottom;
+    m_full_numSmoothPreCond = a_numSmoothPreCond;
+    m_full_relaxType = a_relaxType;
+    m_full_precondType = a_precondType;
+    m_full_numMG = 1; // I'm hardcoding this because 1 is all that seems to work.
+    m_full_maxDepth = a_maxDepth;
+    m_full_eps = a_eps;
+    m_full_hang = a_hang;
+    m_full_normThresh = a_normThresh;
+    m_full_verbosity = a_verbosity;
+}
+
+
+// -----------------------------------------------------------------------------
+// Sets the full 3D bottom solver's parameters.
+// -----------------------------------------------------------------------------
+void LevelLepticSolver::setFullBottomParameters (const int  a_imax,
+                                                 const Real a_eps,
+                                                 const int  a_numRestarts,
+                                                 const Real a_hang,
+                                                 const int  a_verbosity)
+{
+    m_fullBottom_imax = a_imax;
+    m_fullBottom_eps = a_eps;
+    m_fullBottom_numRestarts = a_numRestarts;
+    m_fullBottom_hang = a_hang;
+    m_fullBottom_verbosity = a_verbosity;
+}
 
 // -----------------------------------------------------------------------------
 // Solve L[phi] = rhs.

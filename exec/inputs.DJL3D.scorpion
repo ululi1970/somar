@@ -67,7 +67,7 @@ amr.vert_extrude_tags = 1
 
 ### Timestepping
 amr.final = 200.0
-amr.maxsteps = 10 #1000
+amr.maxsteps = 0 #10 #1000
 amr.cfl = 0.90
 # amr.max_dt = 0.005
 # amr.fixed_dt = -1.0                  # [-1.0]
@@ -165,7 +165,8 @@ projection.isIncompressible = 1           # [1]
 
 ### Solver settings
 AMRMG.eps = 1e-6                # [1e-6]    Solver tolerance
-AMRMG.relax_mode =  1            # [2]       1 = levelGSRB, 3 = lineGSRB                  # WAS 3
+AMRMG.relax_mode =  3           # [2]       1 = levelGSRB, 3 = lineGSRB                  # WAS 3
+AMRMG.precond_mode = 0          # [0]       -1 = None, 0 = Diag, 1 = DiagLine
 AMRMG.num_smooth_down    = 4    # [2]
 AMRMG.num_smooth_up      = 4    # [2]
 AMRMG.num_smooth_bottom  = 4    # [2]       MG bottom smoothing iters
