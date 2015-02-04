@@ -25,6 +25,7 @@
 #define __DJLBCUTIL_H__INCLUDED__
 
 #include "PhysBCUtil.H"
+#include "Constants.H"
 
 
 // -----------------------------------------------------------------------------
@@ -77,6 +78,44 @@ public:
                                            const Real           a_time);
 
 protected:
+    // Reads a_eta from the DJLIC_[a_nx]x[a_nz].bin file.
+    // a_eta[i] is a Vector<Real> containing eta(x) at z[i].
+    // (a_nx, a_nz) are the number of cell centers in the domain, not nodes!
+    // Returns c.
+    static Real readDJLICFile (Vector<Vector<Real> >& a_eta,
+                               const int              a_nx,
+                               const int              a_nz);
+
+    // Computes the u DJL solution over a horizontal slice.
+    // u = c*eta_z (but this assumes eta is already scaled by c)
+    static void fill_uDJL (Vector<Real>&       a_uDJL,    // CC
+                           const Vector<Real>& a_etaTop,  // NC
+                           const Vector<Real>& a_etaBot,  // NC
+                           const Real          a_dz);
+
+    // Computes the w DJL solution over a horizontal slice.
+    // w = -c*eta_x (but this assumes eta is already scaled by c)
+    static void fill_wDJL (Vector<Real>&       a_wDJL,    // CC
+                           const Vector<Real>& a_etaTop,  // NC
+                           const Vector<Real>& a_etaBot,  // NC
+                           const Real          a_dx);
+
+    // Computes the b DJL solution over a horizontal slice.
+    // b(x,z) = eta(z-eta(x)) (but this assumes eta is scaled by c)
+    // Returns the CC background buoyancy at this slice.
+    static Real fill_bDJL (Vector<Real>&       a_bDJL, // CC
+                           const Vector<Real>& a_eta,  // CC
+                           const Real          a_c,    // long wave speed
+                           const Real          a_z);   // slice location
+
+    // Converts a NC horizontal slice of data in a vector to CC.
+    static void convertSliceNC2CC (Vector<Real>&       a_cc,
+                                   const Vector<Real>& a_ncTop,
+                                   const Vector<Real>& a_ncBot);
+
+    // Envelope function for extrusion
+    static Real extrusionEnvelope (const Real a_yprime);
+
     // // Sets physical BCs on velocities
     // virtual BCMethodHolder basicVelFuncBC (int a_veldir, bool a_isViscous) const;
 
@@ -96,11 +135,17 @@ protected:
                                Real            a_derivScale,
                                Real            a_time);
 
-
     // Member variables
     static RealVect s_L;
-    static Real s_d;
-    static Real s_z0;
+
+    static const Real s_d;        // Thickness of pycnocline
+    static const Real s_z0;       // Location of pycnocline
+
+    static const Real s_envSlope; // Envelope slope
+    static const Real s_envWidth; // Envelope width
+    static const Real s_offsetx;  // Pushes the IC into the domain
+    static const Real s_offsety;  // Pushes the IC into the domain
+    static const Real s_rotAngle;
 };
 
 
