@@ -1244,6 +1244,9 @@ void AMRNavierStokes::syncTermDiagnostics()
 }
 
 
+
+#include "AMRLESTools.H"
+#include "MiscUtils.H"
 // -----------------------------------------------------------------------------
 // Provides syncing with a subgrid scale model.
 // This function does nothing by default. Feel free to add whatever code you
@@ -1253,4 +1256,241 @@ void AMRNavierStokes::syncTermDiagnostics()
 void AMRNavierStokes::syncWithSGS ()
 {
     return;
+
+
+    using namespace AMRLESTools;
+
+    // We only want to communicate with the LES when the entire hierarchy has
+    // completed the timestep.
+    if (m_level != 0) return;
+
+    // Are we even using an LES?
+    if (AMRLESMeta::lesSize <= 0) return;
+
+    // // Are we at an AMR/LES sync point?
+    // {
+    //     // Compute phase, cycle number, eta of communication, etc.
+    //     static const Real tidalPeriod = 2.0 * Pi / s_tidalOmega;
+    //     Real timeIntoPhase = fmod(m_time, tidalPeriod);
+    //     int periodNum = int(m_time / tidalPeriod);
+    //     float phaseAngleOn2Pi = timeIntoPhase / tidalPeriod;
+
+    //     Real eta = timeIntoPhase - (0.19101 * tidalPeriod); // Negative while approaching target
+    //     // Real eta = timeIntoPhase - (0.25 * tidalPeriod); // Negative while approaching target
+
+    //     // TEMPORARY!!! This should be in pout.
+    //     // Write the phase and eta to stdout
+    //     if (procID() == 0) {
+    //         ostringstream msg;
+    //         msg << "phase angle/(2*Pi) = " << phaseAngleOn2Pi << ", timeIntoPhase = " << timeIntoPhase << ", eta = " << eta << endl;
+    //         cout << msg.str().c_str() << flush;
+    //     }
+
+    //     // Did we already sync this cycle?
+    //     static bool calledForThisPhase = false;
+    //     if (eta < -TIME_EPS) {
+    //         calledForThisPhase = false;
+    //         return;
+    //     } else if (-TIME_EPS <= eta && !calledForThisPhase) {
+    //         calledForThisPhase = true;
+    //     } else {
+    //         return;
+    //     }
+
+    //     // Is this a cycle that we want to sync?
+    //     if (periodNum < 1) return;
+
+    //     // TEMPORARY!!! This should be in pout.
+    //     // All systems go. Let the user know.
+    //     if (procID() == 0) {
+    //         ostringstream msg;
+    //         msg << "Syncing with LES. periodNum " << periodNum << endl;
+    //         cout << msg.str().c_str() << flush;
+    //     }
+    // }
+
+    // It looks like we are about to perform an AMR/LES communication...
+
+
+    // 1. Determine where the interesting section is.
+    Box srcBox;
+    {
+        IntVect loIV = IntVect::Zero;
+        loIV[0] = m_problem_domain.domainBox().smallEnd(0) / 12;
+
+        IntVect hiIV = IntVect::Zero;
+        hiIV[0] = loIV[0] / 3;
+        hiIV[SpaceDim-1] = m_problem_domain.domainBox().bigEnd(SpaceDim-1) / 4;
+
+        srcBox.define(loIV, hiIV);
+
+        // const ProblemContext* ctx = ProblemContext::getInstance();
+
+        // const Real lp = 0.009714; // Length of along-slope critical region   (fraction of the domain width)
+        // const Real Bp = 0.01173;  // Length of smoothed region at ridge base (fraction of the domain width)
+        // const Real Pp = 0.0183542;// Half-width of smoothed region at ridge peak (fraction of the domain width)
+        // const Real ca = cos(ctx->beamGenMapAlpha);
+        // const Real L0 = m_levGeoPtr->getDomainLength(0);
+        // const Real l = lp*L0;
+        // const Real B = Bp*L0;
+        // const Real P = Pp*L0;
+        // const Real lstar = l + (B+P)/ca;
+        // const Real C2 = -lstar*ca + B;
+        // const Real C3 = -P;
+
+        // const Box& domBox = m_problem_domain.domainBox();
+        // Box searchBox(IntVect::Zero, IntVect::Zero);
+        // searchBox.setSmall(0, domBox.smallEnd(0));
+        // searchBox.setBig(0, (domBox.bigEnd(0) + domBox.smallEnd(0)) / 2);
+        // searchBox.setBig(SpaceDim-1, searchBox.smallEnd(SpaceDim-1));
+
+        // FArrayBox physCoorFAB(domBox, SpaceDim);
+        // m_levGeoPtr->fill_physCoor(physCoorFAB);
+
+        // IntVect cc = searchBox.bigEnd();
+        // int imax = cc[0];
+        // int imin = searchBox.smallEnd(0);
+        // for (int i = imin; i <= imax; ++i) {
+        //     cc[0] = i;
+        //     Real x = physCoorFAB(cc,0);
+        //     if (C2 <= x) {
+        //         imin = i;
+        //         break;
+        //     }
+        // }
+        // for (int i = imin; i <= imax; ++i) {
+        //     cc[0] = i;
+        //     Real x = physCoorFAB(cc,0);
+        //     if (x <= C3) continue;
+        //     imax = i-1;
+        //     break;
+        // }
+        // cout << "C2 = " << C2 << endl;
+        // cc[0] = imin;
+        // cout << "xmin = " << physCoorFAB(cc,0) << endl;
+        // cout << "C3 = " << C3 << endl;
+        // cc[0] = imax;
+        // cout << "xmax = " << physCoorFAB(cc,0) << endl;
+        // CH_assert(imin-2 < imax+2);
+
+        // IntVect loIV = IntVect::Zero;
+        // loIV[0] = imin - 2;
+        // IntVect hiIV = IntVect::Zero;
+        // hiIV[0] = imax + 2;
+        // Box srcBox(loIV, hiIV);
+
+        // // Let's see it!
+        // MayDay::Warning("Destroying newScal");
+        // LevelData<FArrayBox>& bpert = newScal(0);
+        // DataIterator dit = bpert.dataIterator();
+        // for (dit.reset(); dit.ok(); ++dit) {
+        //     FArrayBox& bFAB = bpert[dit];
+
+        //     Box overlap = bFAB.box();
+        //     overlap &= srcBox;
+        //     bFAB.setVal(1.0, overlap, 0);
+        // }
+    }
+
+    // 2. Create and fill source data holders.
+    const int srcProc = uniqueProc(SerialTask::compute);
+    const int thisProc = procID();
+    DisjointBoxLayout srcGrids;
+    DataIterator srcDit;
+    LevelData<FArrayBox> srcCartPos, srcVel, srcB;
+    LevelData<FArrayBox> srcInvJac;
+    {
+        // Create single-proc grids.
+        defineOneProcGrids(srcGrids, m_problem_domain, srcBox, srcProc);
+        srcDit = srcGrids.dataIterator();
+        srcDit.reset();
+        CH_assert(srcDit.ok() || thisProc != srcProc);
+
+        // Get the Cartesian cell locations.
+        srcCartPos.define(srcGrids, SpaceDim);
+        if (thisProc == srcProc) {
+            m_levGeoPtr->fill_physCoor(srcCartPos[srcDit]);
+        }
+
+        // Get the Cartesian-based velocity.
+        srcVel.define(srcGrids, SpaceDim);
+        this->velocity(srcVel, m_time);
+        m_levGeoPtr->sendToCartesianBasis(srcVel);
+
+        // Get the total buoyancy.
+        srcB.define(srcGrids, 1);
+        this->scalar(srcB, m_time, 0);
+        m_physBCPtr->addBackgroundScalar(srcB, 0, m_time, *m_levGeoPtr);
+
+        // Get the inverse Jacobian matrix elements
+        srcInvJac.define(srcGrids, SpaceDim*SpaceDim);
+        if (thisProc == srcProc) {
+            m_levGeoPtr->fill_dXidx(srcInvJac[srcDit]);
+        }
+    }
+
+
+    // 3. Transmit the data
+    if (thisProc == srcProc) {
+        const FArrayBox& srcCartPosFAB = srcCartPos[srcDit];
+        const FArrayBox& srcVelFAB = srcVel[srcDit];
+        const FArrayBox& srcBFAB = srcB[srcDit];
+        const FArrayBox& srcInvJacFAB = srcInvJac[srcDit];
+
+        // Compute the size of the linear array to be transferred.
+        int numFields = srcCartPosFAB.nComp()
+                      + srcVelFAB    .nComp()
+                      + srcBFAB      .nComp()
+                      + srcInvJacFAB .nComp();
+        int cellsPerField = srcBox.numPts();
+        int sizeOfTransfer = 1          // time
+                           + 1          // number of fields value
+                           + SpaceDim   // (nx, nz)
+                           + SpaceDim   // (dXi, dZeta)
+                           + numFields*cellsPerField;   // data
+
+        // Transmit size
+        sendDataToLES(&sizeOfTransfer, 1);
+
+        // Allocate
+        Vector<double> linearData(sizeOfTransfer);
+
+        // Fill
+        int idx = 0;
+        linearData[idx++] = double(m_time);
+        linearData[idx++] = double(numFields);
+        linearData[idx++] = double(srcBox.size(0));
+        linearData[idx++] = double(srcBox.size(SpaceDim-1));
+        linearData[idx++] = double(m_levGeoPtr->getDx(0));
+        linearData[idx++] = double(m_levGeoPtr->getDx(SpaceDim-1));
+
+        const size_t compBytes = cellsPerField * sizeof(double);
+        int ncomp;
+
+        ncomp = srcCartPosFAB.nComp();
+        memcpy(&(linearData[idx]), srcCartPosFAB.dataPtr(), compBytes*ncomp);
+        idx += (cellsPerField * ncomp);
+
+        ncomp = srcVelFAB.nComp();
+        memcpy(&(linearData[idx]), srcVelFAB.dataPtr(), compBytes*ncomp);
+        idx += (cellsPerField * ncomp);
+
+        ncomp = srcBFAB.nComp();
+        memcpy(&(linearData[idx]), srcBFAB.dataPtr(), compBytes*ncomp);
+        idx += (cellsPerField * ncomp);
+
+        ncomp = srcInvJacFAB.nComp();
+        memcpy(&(linearData[idx]), srcInvJacFAB.dataPtr(), compBytes*ncomp);
+        // idx += (cellsPerField * ncomp);
+
+        // Transmit data
+        // cout << "Sending " << sizeOfTransfer << "B..." << flush;
+        sendDataToLES(linearData);
+
+        // New methods...
+        // sendDataToLES(srcCartPos[srcDit]);
+        // sendDataToLES(srcVelFAB[srcDit]);
+        // sendDataToLES(srcBFAB[srcDit]);
+        // sendDataToLES(srcInvJacFAB[srcDit]);
+    }
 }

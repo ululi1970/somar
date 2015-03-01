@@ -41,6 +41,10 @@ RealVect DJLBCUtil::s_L = RealVect::Zero;
 const Real DJLBCUtil::s_d = 0.1;        // Thickness of pycnocline
 const Real DJLBCUtil::s_z0 = 0.8;       // Location of pycnocline
 
+Real DJLBCUtil::s_rho_bottom = quietNAN;
+Real DJLBCUtil::s_rho_top = quietNAN;
+Real DJLBCUtil::s_rho_scale = quietNAN;
+
 // // For non-oblique 3D problem
 // const Real DJLBCUtil::s_envSlope = 1.0 / 6.4;   // Envelope slope
 // const Real DJLBCUtil::s_envWidth = 192.0;       // Envelope width
@@ -70,6 +74,9 @@ DJLBCUtil::DJLBCUtil ()
 
         // TODO: Read all static parameters from input file.
 
+        s_rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
+        s_rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
+        s_rho_scale = 1.0 / (s_rho_bottom - s_rho_top);
         paramsRead = true;
     }
 }
@@ -347,11 +354,8 @@ void DJLBCUtil::bscalBCValues (Real*           a_pos,
                                Real            a_time)
 {
     Real z = a_pos[CH_SPACEDIM-1];
-    Real rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
-    Real rho        = 0.5 * (1.0 - tanh((z   - s_z0) / s_d));
-    Real rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
-
-    a_value[0] = (rho - rho_top) / (rho_bottom - rho_top);
+    Real rho = 0.5 * (1.0 - tanh((z - s_z0) / s_d));
+    a_value[0] = (rho - s_rho_top) * s_rho_scale;
 }
 
 
@@ -540,16 +544,14 @@ Real DJLBCUtil::fill_bDJL (Vector<Real>&       a_bDJL, // CC
     a_bDJL.resize(Nx);
 
     // Compute background solution
-    Real rho_bottom = 0.5 * (1.0 - tanh((0.0 - s_z0) / s_d));
-    Real rho        = 0.5 * (1.0 - tanh((a_z - s_z0) / s_d));
-    Real rho_top    = 0.5 * (1.0 - tanh((1.0 - s_z0) / s_d));
-    Real bgScalar   = (rho - rho_top) / (rho_bottom - rho_top);
+    Real rho = 0.5 * (1.0 - tanh((a_z - s_z0) / s_d));
+    Real bgScalar = (rho - s_rho_top) * s_rho_scale;
 
     // Compute the DJL solution
     for (int i = 0; i < Nx; ++i) {
         Real ztilde = a_z - (a_eta[i] / a_c);
         rho = 0.5 * (1.0 - tanh((ztilde - s_z0) / s_d));
-        a_bDJL[i] = (rho - rho_top) / (rho_bottom - rho_top);
+        a_bDJL[i] = (rho - s_rho_top) * s_rho_scale;
     }
 
     return bgScalar;

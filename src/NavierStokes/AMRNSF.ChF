@@ -366,3 +366,93 @@ c ----------------------------------------------------------------
 
       return
       end
+
+
+c ----------------------------------------------------------------
+c  computePotentialEnergy
+c  utility function to compute the PE at each point
+c  PE = h*b'
+c ----------------------------------------------------------------
+      subroutine computePotentialEnergy (
+     &      CHF_FRA1[pe],
+     &      CHF_CONST_FRA1[buoyancy],
+     &      CHF_CONST_FRA1[height],
+     &      CHF_BOX[region])
+
+      integer CHF_AUTODECL[i]
+
+      CHF_AUTOMULTIDO[region;i]
+        pe(CHF_AUTOIX[i]) = buoyancy(CHF_AUTOIX[i]) * height(CHF_AUTOIX[i])
+      CHF_ENDDO
+
+      return
+      end
+
+
+c ----------------------------------------------------------------
+c  computeAPE
+c  utility function to compute a the APE at each point
+c  APE = Integral[z-zstar(s)]ds from bstar(z) to btotal(x,y,z,t)
+c ----------------------------------------------------------------
+      subroutine computeAPE (
+     &      CHF_FRA1[ape],
+     &      CHF_CONST_FRA1[btotal],
+     &      CHF_CONST_FRA1[bbar],
+     &      CHF_BOX[region],
+     &      CHF_CONST_REALVECT[dx])
+
+      integer CHF_AUTODECL[i]
+      REAL_T bt, bstar
+      REAL_T c0, c1, ut, ub, la
+      REAL_T BB, TT, BmT, d, z0, z
+      parameter (d = 0.1)
+      parameter (z0 = 0.8)
+
+      TT = tanh((one-z0)/d)
+      BB = tanh((   -z0)/d)
+      BmT = BB - TT
+
+
+      CHF_AUTOMULTIDO[region;i]
+        bt = btotal(CHF_AUTOIX[i])
+        bstar = bbar(CHF_AUTOIX[i])
+
+        z = (DBLE(i2) + half) * dx(2)
+        c0 = (z-z0)*(bt-bstar)
+        c1 = -d/BmT
+        ut = TT + BmT*bt
+        ub = TT + BmT*bstar
+
+        la = (one-ut*ut) / (one-ub*ub)
+        ! ape(CHF_AUTOIX[i]) = c0 + c1*(ut*ATANH(ut) - ub*ATANH(ub) + half*LOG(la))
+        ape(CHF_AUTOIX[i]) = la
+      CHF_ENDDO
+
+      return
+      end
+
+
+c ----------------------------------------------------------------
+c  computeAPEt
+c  utility function to compute a the tubulent APE at each point
+c  APEt = 0.5*(b'/N)^2
+c ----------------------------------------------------------------
+      subroutine computeAPET (
+     &      CHF_FRA1[apet],
+     &      CHF_CONST_FRA1[bprime],
+     &      CHF_CONST_FRA1[Nsq],
+     &      CHF_BOX[region],
+     &      CHF_CONST_REALVECT[dx])
+
+      integer CHF_AUTODECL[i]
+      REAL_T bsq, z
+
+      CHF_AUTOMULTIDO[region;i]
+        ! apet(CHF_AUTOIX[i]) = half * (bprime(CHF_AUTOIX[i])**2) / Nsq(CHF_AUTOIX[i])
+
+        z = (DBLE(i2) + half) * dx(2)
+        apet(CHF_AUTOIX[i]) = bprime(CHF_AUTOIX[i]) * z
+      CHF_ENDDO
+
+      return
+      end

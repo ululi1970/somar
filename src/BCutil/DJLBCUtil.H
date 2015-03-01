@@ -146,6 +146,10 @@ protected:
     static const Real s_offsetx;  // Pushes the IC into the domain
     static const Real s_offsety;  // Pushes the IC into the domain
     static const Real s_rotAngle;
+
+    static Real s_rho_bottom;
+    static Real s_rho_top;
+    static Real s_rho_scale;
 };
 
 
