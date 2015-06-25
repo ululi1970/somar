@@ -168,17 +168,17 @@ void BeamGenerationBCUtil::fillVelSpongeLayerTarget (FArrayBox&           a_targ
                                                      const LevelGeometry& a_levGeo,
                                                      const DataIndex&     a_di,
                                                      const Real           a_time)
-{
+{   static Real s_time;
     // Sanity checks
     CH_assert(useSpongeLayer());
     CH_assert(a_target.nComp() == 1);
     CH_assert(0 <= a_spongeDir);
     CH_assert(a_spongeDir < SpaceDim);
-
+    s_time=a_time;
     // Target is the inflow/outflow value.
     if (a_spongeDir == 0) {
         if (a_velComp == 0) {
-            a_target.setVal(s_tidalU0 * sin(s_tidalOmega * a_time));
+            a_target.setVal(s_tidalU0 * sin(s_tidalOmega * s_time));
         } else {
             a_target.setVal(0.0);
         }
@@ -199,8 +199,8 @@ BCMethodHolder BeamGenerationBCUtil::basicVelFuncBC (int a_veldir, bool a_isVisc
     const IntVect vUnit = BASISV(CH_SPACEDIM-1);
 
     BCMethodHolder holder;
-
-    if (a_veldir == 0) {
+    bool isNoSlip=false; // Set to true to apply no-slip condition at bottom 
+    if (a_veldir < SpaceDim-1) {
         //               Freeslip
         // u: Extrap 0 |==========| Extrap 0
         //                Diri 0
@@ -245,7 +245,7 @@ BCMethodHolder BeamGenerationBCUtil::basicVelFuncBC (int a_veldir, bool a_isVisc
                                           -1,              // outflowDir
                                           Side::Hi,        // outflowSide
                                           a_veldir,
-                                          a_isViscous,
+                                          isNoSlip,//a_isViscous,
                                           vUnit,
                                           IntVect(D_DECL(0,0,0)))
         );
