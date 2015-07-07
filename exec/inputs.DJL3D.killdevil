@@ -2,8 +2,8 @@ ibc.problem = 8                # 8 = DJL
 ibc.useBackgroundScalar = 1
 
 
-# amr.restart_file = /nas02/home/s/a/santilli/scr/chkpt_000100.3d.hdf5
-amr.gravityMethod = 1          # [1]   0 = none, 1 = explicit, 2 = implicit
+amr.restart_file = /nas02/home/s/a/santilli/scr/chkpt_001050.3d.hdf5
+amr.gravityMethod = 2          # [1]   0 = none, 1 = explicit, 2 = implicit
 amr.gravityTheta = 0.52         # [0.6] 0.0 = Forward Euler, 0.5 = Crank-Nicolson, 1.0 = Backwards Euler
 # les.proc_frac = 0.0
 amr.verbosity = 1
@@ -33,7 +33,7 @@ amr.length = 512.0 512.0 1.0  # For oblique problem
 amr.nx = 128 128 32
 amr.splitDirs = 1 1 0            # [1 1 1]
 amr.max_grid_size = 0 0 0
-amr.refratio = 8 8 1   # Must set if maxlevel > 0
+amr.refratio = 4 4 1   # Must set if maxlevel > 0
 amr.refratio_lev0 = 2 2 2
 
 
@@ -55,8 +55,8 @@ amr.vert_extrude_tags = 1
 
 
 ### Timestepping
-amr.final = 200.0
-amr.maxsteps = 10 #1000
+amr.final = 1000.0
+amr.maxsteps = 10000
 amr.cfl = 0.90
 # amr.max_dt = 0.005
 # amr.fixed_dt = -1.0                  # [-1.0]
@@ -90,7 +90,7 @@ amr.viscosity = 0.0000000
 plot.plot_prefix = /nas02/home/s/a/santilli/scr/plot_             # [plot_]
 plot.checkpoint_prefix = /nas02/home/s/a/santilli/scr/chkpt_      # [chkpt_]
 # plot.plot_period = 0.1
-plot.plot_interval = 1
+plot.plot_interval = 10
 plot.checkpoint_interval = 25
 
 plot.writeScalars = 1
@@ -127,7 +127,7 @@ advection.normalPredOrderVel = 2          # [2] 0=CTU, 1=PLM, 2=PPM
 advection.useFourthOrderSlopesVel = 1     # [1]
 advection.useLimitingVel = 0              # [0]
 advection.useHighOrderLimiterVel = 0      # [0]
-advection.nonlinearDifferencingForm = 1   # [0] -1=None, 0=Conservative, 1=Advective
+advection.nonlinearDifferencingForm = 0   # [0] -1=None, 0=Conservative, 1=Advective
 
 advection.normalPredOrderScal = 2         # [2] 0=CTU, 1=PLM, 2=PPM
 advection.useFourthOrderSlopesScal = 1    # [1]
@@ -142,12 +142,12 @@ advection.useHighOrderLimiterScal = 1     # [0]
 projection.isIncompressible = 1           # [1]
 # projection.initial_pressure_iters = 1     # [1]
 # projection.level_projection_iters = 1     # [1]
-projection.doSyncProjection = 0           # [1]
-projection.sync_projection_iters = 0      # [1]
+# projection.doSyncProjection = 0           # [1]
+# projection.sync_projection_iters = 0      # [1]
 # projection.initial_projection_iters = 0   # [1]
 # projection.applyVDCorrection = 1          # [0]
 # projection.etaLambda = 0.9                # [0.0]
-projection.applySyncCorrection = 0        # [1]
+# projection.applySyncCorrection = 0        # [1]
 # projection.divTol = 1e-6                  # Not yet in use
 # projection.divNormType = 0                # Not yet in use
 
