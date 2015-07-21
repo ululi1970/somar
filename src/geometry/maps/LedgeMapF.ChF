@@ -1,0 +1,44 @@
+c construct a simple shelf geometry.
+      subroutine fill_bathy(CHF_BOX[destBox],CHF_FRA1[a_dest], 
+     &	   CHF_CONST_FRA1[a_cartPos],CHF_CONST_REAL[m_xl], 
+     &	   CHF_CONST_REAL[m_xr],CHF_CONST_REAL[m_hl],
+     &     CHF_CONST_REAL[m_hr],CHF_CONST_REAL[m_coeff0],
+     &     CHF_CONST_REAL[m_coeff1], 
+     &	   CHF_CONST_REAL[m_coeff2],
+     &     CHF_CONST_REAL[m_coeff3],CHF_CONST_INT[m_transitionOrder])
+
+      REAL_T x
+      integer CHF_AUTODECL[i]
+      if(m_transitionOrder==3) then
+      CHF_AUTOMULTIDO[destBox; i]
+      x=a_cartPos(CHF_AUTOIX[i])
+      if(x<m_xl) then
+	   
+      a_dest(CHF_AUTOIX[i])=m_hl
+      elseif(x>m_xr) then
+      a_dest(CHF_AUTOIX[i])=m_hr
+      else
+      a_dest(CHF_AUTOIX[i])=m_coeff0 + 
+     & 	   x*(m_coeff1 + x*(m_coeff2 + x*m_coeff3))
+
+      endif
+      CHF_ENDDO
+      else
+      CHF_AUTOMULTIDO[destBox; i]
+      x=a_cartPos(CHF_AUTOIX[i])
+      if(x<m_xl) then
+	   
+      a_dest(CHF_AUTOIX[i])=m_hl
+      elseif(x>m_xr) then
+      a_dest(CHF_AUTOIX[i])=m_hr
+      else
+      a_dest(CHF_AUTOIX[i])=m_coeff0 + x*m_coeff1
+
+      endif
+      CHF_ENDDO
+      endif
+
+
+
+      return
+      end	   

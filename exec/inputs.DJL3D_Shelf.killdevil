@@ -2,14 +2,21 @@ ibc.problem = 8                # 8 = DJL
 ibc.useBackgroundScalar = 1
 
 
-#amr.restart_file = /nas02/home/s/a/santilli/scr/chkpt_001050.3d.hdf5
+amr.restart_file = /scratch/scotti/work/somar/exec/DJL3D/chkpt_000225.3d.hdf5
 amr.gravityMethod = 2          # [1]   0 = none, 1 = explicit, 2 = implicit
 amr.gravityTheta = 0.52         # [0.6] 0.0 = Forward Euler, 0.5 = Crank-Nicolson, 1.0 = Backwards Euler
 # les.proc_frac = 0.0
 amr.verbosity = 1
 
 ### Coordinate map
-geometry.coordMap = 0           # 0 = Cartesian, 1 = Twisted, 2 = Beam generation ridge, 5 = Ledge
+geometry.coordMap = 5           # 0 = Cartesian, 1 = Twisted, 2 = Beam generation ridge, 5 = Ledge
+geometry.ledgeMapTransitionOrder = 3    # 1=linear, 3=cubic
+geometry.ledgeMapHl = 0.0
+geometry.ledgeMapHr = 0.5
+geometry.ledgeMapXl = 256.0
+geometry.ledgeMapXr = 356.0
+
+
 
 ### Base grid
 # # 8 procs...
@@ -31,6 +38,7 @@ geometry.coordMap = 0           # 0 = Cartesian, 1 = Twisted, 2 = Beam generatio
 # Oblique problem w/ 16, 64, or 256 procs
 amr.length = 512.0 512.0 1.0  # For oblique problem
 amr.nx = 128 128 32
+#amr.isPeriodic = 0 1 0
 amr.splitDirs = 1 1 0            # [1 1 1]
 amr.max_grid_size = 0 0 0
 amr.refratio = 4 4 1   # Must set if maxlevel > 0
@@ -97,7 +105,7 @@ plot.checkpoint_interval = 25
 plot.writeScalars = 1
 plot.writeScalarsMinusBackground = 1
 plot.writePressure = 1
-plot.writeDisplacement = 0           # [0]
+plot.writeDisplacement = 1           # [0]
 plot.writeDivergence = 1             # [0]
 plot.writeLambda = 1                 # [0]
 # plot.writeGradELambda = 1            # [0]

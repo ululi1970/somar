@@ -280,6 +280,96 @@ inline void FORTRAN_NAME(inlineCOMPUTEKINETICENERGY, inlineCOMPUTEKINETICENERGY)
 }
 #endif  // GUARDCOMPUTEKINETICENERGY 
 
+#ifndef GUARDCOMPUTEPOTENTIALENERGY 
+#define GUARDCOMPUTEPOTENTIALENERGY 
+// Prototype for Fortran procedure computePotentialEnergy ...
+//
+void FORTRAN_NAME( COMPUTEPOTENTIALENERGY ,computepotentialenergy )(
+      CHFp_FRA1(pe)
+      ,CHFp_CONST_FRA1(buoyancy)
+      ,CHFp_CONST_FRA1(height)
+      ,CHFp_BOX(region) );
+
+#define FORT_COMPUTEPOTENTIALENERGY FORTRAN_NAME( inlineCOMPUTEPOTENTIALENERGY, inlineCOMPUTEPOTENTIALENERGY)
+#define FORTNT_COMPUTEPOTENTIALENERGY FORTRAN_NAME( COMPUTEPOTENTIALENERGY, computepotentialenergy)
+
+inline void FORTRAN_NAME(inlineCOMPUTEPOTENTIALENERGY, inlineCOMPUTEPOTENTIALENERGY)(
+      CHFp_FRA1(pe)
+      ,CHFp_CONST_FRA1(buoyancy)
+      ,CHFp_CONST_FRA1(height)
+      ,CHFp_BOX(region) )
+{
+ CH_TIMELEAF("FORT_COMPUTEPOTENTIALENERGY");
+ FORTRAN_NAME( COMPUTEPOTENTIALENERGY ,computepotentialenergy )(
+      CHFt_FRA1(pe)
+      ,CHFt_CONST_FRA1(buoyancy)
+      ,CHFt_CONST_FRA1(height)
+      ,CHFt_BOX(region) );
+}
+#endif  // GUARDCOMPUTEPOTENTIALENERGY 
+
+#ifndef GUARDCOMPUTEAPE 
+#define GUARDCOMPUTEAPE 
+// Prototype for Fortran procedure computeAPE ...
+//
+void FORTRAN_NAME( COMPUTEAPE ,computeape )(
+      CHFp_FRA1(ape)
+      ,CHFp_CONST_FRA1(btotal)
+      ,CHFp_CONST_FRA1(bbar)
+      ,CHFp_BOX(region)
+      ,CHFp_CONST_REALVECT(dx) );
+
+#define FORT_COMPUTEAPE FORTRAN_NAME( inlineCOMPUTEAPE, inlineCOMPUTEAPE)
+#define FORTNT_COMPUTEAPE FORTRAN_NAME( COMPUTEAPE, computeape)
+
+inline void FORTRAN_NAME(inlineCOMPUTEAPE, inlineCOMPUTEAPE)(
+      CHFp_FRA1(ape)
+      ,CHFp_CONST_FRA1(btotal)
+      ,CHFp_CONST_FRA1(bbar)
+      ,CHFp_BOX(region)
+      ,CHFp_CONST_REALVECT(dx) )
+{
+ CH_TIMELEAF("FORT_COMPUTEAPE");
+ FORTRAN_NAME( COMPUTEAPE ,computeape )(
+      CHFt_FRA1(ape)
+      ,CHFt_CONST_FRA1(btotal)
+      ,CHFt_CONST_FRA1(bbar)
+      ,CHFt_BOX(region)
+      ,CHFt_CONST_REALVECT(dx) );
+}
+#endif  // GUARDCOMPUTEAPE 
+
+#ifndef GUARDCOMPUTEAPET 
+#define GUARDCOMPUTEAPET 
+// Prototype for Fortran procedure computeAPET ...
+//
+void FORTRAN_NAME( COMPUTEAPET ,computeapet )(
+      CHFp_FRA1(apet)
+      ,CHFp_CONST_FRA1(bprime)
+      ,CHFp_CONST_FRA1(Nsq)
+      ,CHFp_BOX(region)
+      ,CHFp_CONST_REALVECT(dx) );
+
+#define FORT_COMPUTEAPET FORTRAN_NAME( inlineCOMPUTEAPET, inlineCOMPUTEAPET)
+#define FORTNT_COMPUTEAPET FORTRAN_NAME( COMPUTEAPET, computeapet)
+
+inline void FORTRAN_NAME(inlineCOMPUTEAPET, inlineCOMPUTEAPET)(
+      CHFp_FRA1(apet)
+      ,CHFp_CONST_FRA1(bprime)
+      ,CHFp_CONST_FRA1(Nsq)
+      ,CHFp_BOX(region)
+      ,CHFp_CONST_REALVECT(dx) )
+{
+ CH_TIMELEAF("FORT_COMPUTEAPET");
+ FORTRAN_NAME( COMPUTEAPET ,computeapet )(
+      CHFt_FRA1(apet)
+      ,CHFt_CONST_FRA1(bprime)
+      ,CHFt_CONST_FRA1(Nsq)
+      ,CHFt_BOX(region)
+      ,CHFt_CONST_REALVECT(dx) );
+}
+#endif  // GUARDCOMPUTEAPET 
+
 }
 
 #endif

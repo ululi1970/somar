@@ -2,7 +2,8 @@
 ebase := somar
 
 # Where do the Chombo libraries live?
-CHOMBO_HOME = ../../lib/Chombo/lib
+VER = 3.1_GCC
+CHOMBO_HOME = $(HOME)/Chombo-$(VER)/lib
 
 # Do you want to trap floating point errors?
 TRAPFPE = FALSE

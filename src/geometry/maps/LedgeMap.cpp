@@ -22,6 +22,7 @@
  *  https://github.com/somarhub.
  ******************************************************************************/
 #include "LedgeMap.H"
+#include "LedgeMapF_F.H"
 #include "ProblemContext.H"
 #include "Subspace.H"
 #include "BoxIterator.H"
@@ -108,56 +109,52 @@ void LedgeMap::fill_bathymetry (FArrayBox&       a_dest,
     CH_assert(destBox == horizontalDataBox(destBox));
     CH_assert(destBoxType[SpaceDim-1] == 1);
 
-#if CH_SPACEDIM == 3
-    // Alberto's Gaussian bump...
-    // TODO: Make this it's own class.
-    Real x, y, R2;
-    BoxIterator bit(destBox);
-    for (bit.reset(); bit.ok(); ++bit){
-        const IntVect& iv = bit();
-        x = a_cartPos(iv,0) - m_xl;
-        y = a_cartPos(iv,1) - m_xl;
-        R2 = x*x + y*y;
-        a_dest(iv,a_destComp) = (m_hl-m_hr)*exp(-R2/(m_xr*m_xr)) + m_hr;
-    }
-
-#else
     Real x;
     BoxIterator bit(destBox);
+   
+    FORT_FILL_BATHY(CHF_BOX(destBox),CHF_FRA1(a_dest,a_destComp),
+			     CHF_CONST_FRA1(a_cartPos,0),CHF_CONST_REAL(m_xl),
+		    CHF_CONST_REAL(m_xr),CHF_CONST_REAL(m_hl), CHF_CONST_REAL(m_hr),CHF_CONST_REAL(m_coeff0),
+			    CHF_CONST_REAL(m_coeff1),
+		    CHF_CONST_REAL(m_coeff2), CHF_CONST_REAL(m_coeff3),
+		    CHF_CONST_INT(m_transitionOrder));
 
-    switch (m_transitionOrder) {
-    case 1: // Linear transition region
-        for (bit.reset(); bit.ok(); ++bit) {
-            const IntVect& iv = bit();
-            x = a_cartPos(iv, 0);
+    
+    // switch (m_transitionOrder) {
+    // case 1: // Linear transition region
+    //     for (bit.reset(); bit.ok(); ++bit) {
+    //         const IntVect& iv = bit();
+    //         x = a_cartPos(iv, 0);
 
-            if (x < m_xl) {
-                a_dest(iv,a_destComp) = m_hl;
-            } else if (x > m_xr) {
-                a_dest(iv,a_destComp) = m_hr;
-            } else {
-                a_dest(iv,a_destComp) = m_coeff0 + x*m_coeff1;
-            }
-        }
-        break;
+    //         if (x < m_xl) {
+    //             a_dest(iv,a_destComp) = m_hl;
+    //         } else if (x > m_xr) {
+    //             a_dest(iv,a_destComp) = m_hr;
+    //         } else {
+    //             a_dest(iv,a_destComp) = m_coeff0 + x*m_coeff1;
+    //         }
+    //     }
+	
+    //     break;
 
-    case 3: // Cubic transition region
-        for (bit.reset(); bit.ok(); ++bit) {
-            const IntVect& iv = bit();
-            x = a_cartPos(iv, 0);
+    // case 3: // Cubic transition region
+    
+    //     for (bit.reset(); bit.ok(); ++bit) {
+    //         const IntVect& iv = bit();
+    //         x = a_cartPos(iv, 0);
 
-            if (x < m_xl) {
-                a_dest(iv,a_destComp) = m_hl;
-            } else if (x > m_xr) {
-                a_dest(iv,a_destComp) = m_hr;
-            } else {
-                a_dest(iv,a_destComp) = m_coeff0 + x*(m_coeff1 + x*(m_coeff2 + x*m_coeff3));
-            }
-        }
-        break;
+    //         if (x < m_xl) {
+    //             a_dest(iv,a_destComp) = m_hl;
+    //         } else if (x > m_xr) {
+    //             a_dest(iv,a_destComp) = m_hr;
+    //         } else {
+    //             a_dest(iv,a_destComp) = m_coeff0 + x*(m_coeff1 + x*(m_coeff2 + x*m_coeff3));
+    //         }
+    //     }
+    //     break;
 
-    default:
-        MayDay::Error("LedgeMap::fill_bathymetry received an invalid m_transitionOrder");
-    }
-#endif
+    // default:
+    //     MayDay::Error("LedgeMap::fill_bathymetry received an invalid m_transitionOrder");
+    // }
+
 }
