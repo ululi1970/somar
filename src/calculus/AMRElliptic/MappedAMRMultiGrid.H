@@ -1139,8 +1139,9 @@ void MappedAMRMultiGrid<T>::solveNoInitResid (Vector<T*>&       a_phi,
 
     if (!somethingConverged && rnorm >= initial_rnorm && rnorm >= m_eps) {
         pout() << "MappedAMRMultiGrid solver blew up." << endl;
+        pout() << "I am an optimist, and I will keep going, keep your fingers crossed." << endl;
         // std::cout << "MappedAMRMultiGrid solver blew up." << endl;
-        MayDay::Error("MappedAMRMultiGrid solver blew up");
+        //        MayDay::Error("MappedAMRMultiGrid solver blew up");
     }
 
     // The solver has finished. Figure out the final state of the solution.
