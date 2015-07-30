@@ -82,8 +82,10 @@ void BoundaryData<T>::define (const DisjointBoxLayout& a_grids,
                               const ProblemDomain&     a_domain,
                               const int                a_ncomp)
 {
-    CH_assert(a_ncomp >= 1);
+  CH_assert(a_ncomp >= 1); // this trap is never caught 
 
+    
+    
     // Remember the source layout so we can call check() later.
     m_grids = a_grids;
 
@@ -95,13 +97,15 @@ void BoundaryData<T>::define (const DisjointBoxLayout& a_grids,
 
     for (int dir = 0; dir < SpaceDim; ++dir) {
         // Only process non-periodic boundaries
-        if (a_domain.isPeriodic()) continue;
+
+        if (a_domain.isPeriodic(dir)) continue;
 
         SideIterator sit;
         for (sit.reset(); sit.ok(); ++sit) {
             const Side::LoHiSide& iside = sit();
             const int s = int(iside);
             const Box domBdryFaces = bdryBox(domBox, dir, iside, 1);
+
             BoundaryDataMapType& thisMap = m_bdryFaceMap[dir][s];
 
             for (dit.reset(); dit.ok(); ++dit) {
